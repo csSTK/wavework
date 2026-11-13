@@ -1,0 +1,36 @@
+{
+  "name": "wavework",
+  "version": "0.0.0",
+  "description": "Versioned Claude Code pipeline for beads repos: waves of parallel sub-agents, independent review, red-before-green, findings backlog.",
+  "type": "module",
+  "bin": {
+    "wavework": "bin/wavework.mjs"
+  },
+  "files": [
+    "bin/",
+    "src/",
+    "templates/",
+    "CHANGELOG.md"
+  ],
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "test": "node --test"
+  },
+  "keywords": [
+    "claude-code",
+    "beads",
+    "sub-agents",
+    "pipeline"
+  ],
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/csSTK/wavework.git"
+  },
+  "homepage": "https://github.com/csSTK/wavework#readme",
+  "bugs": {
+    "url": "https://github.com/csSTK/wavework/issues"
+  }
+}
