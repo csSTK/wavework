@@ -24,7 +24,11 @@ Give the agent: the input above and these instructions.
    - would it pass on the old code: use the red-green script output (you can't run it read-only). Every `GREEN-ON-OLD` test is must-fix unless the bead is a stated exception (pure refactor/docs/config) or the implementer's report justifies it as a deliberate regression guard. `RED-COMPILE` is accepted. Exit code 2 or no output: ask the orchestrator for a rerun. `UNCHANGED` rows are untouched tests, ignore them. E2E specs are not covered; judge those from the diff (e.g. asserting only on mocks with no real outcome).
    - CLAUDE.md Working Rules, Security, Architecture and Testing rules{{#if uiSkill}} (and the `{{uiSkill.name}}` skill for UI under {{uiPaths}}){{/if}}
    {{#if codeMap}}
+   {{#if codeMap.folder}}
+   - Code Map entries in the module files under `{{codeMap.path}}/` match the added, moved or removed files: flag missing, stale or over-limit entries (a description over {{codeMap.maxDescription}} characters). Run `{{codeMap.checkCommand}}` (read-only) and report its violations
+   {{else}}
    - Code Map entries in `{{codeMap.path}}` match the added, moved or removed files
+   {{/if}}
    {{/if}}
    - no scope creep, no secrets in code, logs or tests
 3. **Read-only:** no Edit/Write, no commits, no `git add`/`stash`/`checkout`, no `bd` writes, no test or build runs that change files. Re-checking with read-only commands is fine.
@@ -46,7 +50,7 @@ Out-of-scope:
 
 ## Branch review (always)
 
-Run by `next-task-finish` before the push, once per run. Same reviewer, but the input is the whole branch: diff `origin/{{baseBranch}}..HEAD` in `<WT>`, checked against the epic's (or all given beads') description and acceptance criteria as a whole: gaps between children, inconsistent behaviour, missing wiring{{#if codeMap}} or `{{codeMap.path}}` lines{{/if}}. Same checklist (including the red-green script output) and same output format. One fix round only, no 3-round loop (see `next-task-finish`).
+Run by `next-task-finish` before the push, once per run. Same reviewer, but the input is the whole branch: diff `origin/{{baseBranch}}..HEAD` in `<WT>`, checked against the epic's (or all given beads') description and acceptance criteria as a whole: gaps between children, inconsistent behaviour, missing wiring{{#if codeMap}}{{#if codeMap.folder}} or code map entries under `{{codeMap.path}}/`{{else}} or `{{codeMap.path}}` lines{{/if}}{{/if}}. Same checklist (including the red-green script output) and same output format. One fix round only, no 3-round loop (see `next-task-finish`).
 
 ## Loop (the orchestrator's side)
 

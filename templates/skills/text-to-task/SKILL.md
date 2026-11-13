@@ -11,7 +11,7 @@ Input: the text after the command (`$ARGUMENTS`), or the user's latest message i
 
 ## 1. Gather context (cheap, targeted)
 
-- Read CLAUDE.md: the working rules, model policy, architecture and security sections. {{#if codeMap}}Grep `{{codeMap.path}}` to find affected files; only open code if the map isn't enough.{{else}}Find the affected files with grep; only open what you need.{{/if}}
+- Read CLAUDE.md: the working rules, model policy, architecture and security sections. {{#if codeMap}}{{#if codeMap.folder}}Read `{{codeMap.indexPath}}` and grep or read only the module file that covers the affected paths to find affected files; only open code if the map isn't enough.{{else}}Grep `{{codeMap.path}}` to find affected files; only open code if the map isn't enough.{{/if}}{{else}}Find the affected files with grep; only open what you need.{{/if}}
 - Read the project's list of open decisions, if it has one (CLAUDE.md says where).
 - Run `bd list --status open` and check for existing epics/tasks that already cover the request. Extend or reference them instead of creating duplicates.
 

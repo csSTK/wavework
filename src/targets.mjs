@@ -11,7 +11,8 @@
  *     verbatim  optional, `true`: copy the template byte for byte instead of rendering it (JavaScript/CSS
  *               that may contain braces). Only the dashboard runtime uses it.
  *
- *   One entry per file to write, for ALL templates (skills, agents, scripts). The agent template
+ *   One entry per file to write, for ALL templates (skills, agents, scripts). `scripts/code-map-check.mjs` (verbatim, 0o644)
+ *   only with a folder code map (`codeMap.path` not ending in .md); otherwise none, so `update` removes it. The agent template
  *   `agents/implementer.md` appears once per implementer model (the keys of `models.implementers.rules`
  *   plus `models.implementers.default`), each with `vars.agent = { model, name, description, rule, isDefault, defaultName }` (`description` is a quoted YAML scalar).
  *   With `dashboard.enabled` there is one more entry per file of `templates/dashboard/` (DASHBOARD_FILES, verbatim,
@@ -24,7 +25,8 @@
  */
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
-import { buildContext, implementerAgents } from './context.mjs';
+import { codeMapLayout } from './config.mjs';
+import { buildContext, CODE_MAP_CHECKER, implementerAgents } from './context.mjs';
 import { render } from './render.mjs';
 
 export const SKILLS = [
@@ -75,6 +77,9 @@ export function templateTargets(config) {
   }
   for (const name of SCRIPTS) {
     entries.push({ template: `scripts/${name}`, target: `.claude/scripts/${name}`, vars: {}, mode: 0o755 });
+  }
+  if (config.codeMap && codeMapLayout(config.codeMap.path) === 'folder') {
+    entries.push({ template: 'scripts/code-map-check.mjs', target: CODE_MAP_CHECKER, vars: {}, mode: 0o644, verbatim: true });
   }
   if (config.dashboard?.enabled) {
     for (const name of DASHBOARD_FILES) {

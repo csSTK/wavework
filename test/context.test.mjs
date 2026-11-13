@@ -59,7 +59,7 @@ test('a single rule yields a single label and agent', () => {
 test('optional sections are false when absent and objects when present', () => {
   assert.equal(minimal().codeMap, false);
   assert.equal(minimal().uiSkill, false);
-  assert.equal(shipir().codeMap.path, 'docs/CODE_MAP.md');
+  assert.equal(shipir().codeMap.path, 'docs/code-map');
   assert.equal(shipir().uiSkill.name, 'apple-design');
   assert.equal(shipir().uiPaths, '`frontend/`');
 });
@@ -105,4 +105,28 @@ test('every value a template needs is defined for the minimal config', () => {
 test('hasLint reflects whether any area configures lint', () => {
   assert.equal(shipir().hasLint, true);
   assert.equal(minimal().hasLint, false);
+});
+
+test('codeMap context: file layout keeps the path, folder layout adds index path, limit and checker command', () => {
+  const file = buildContext(validateConfig({ ...minimalRaw, codeMap: { path: 'docs/CODE_MAP.md' } })).codeMap;
+  assert.equal(file.path, 'docs/CODE_MAP.md');
+  assert.equal(file.layout, 'file');
+  assert.equal(file.folder, false);
+  const folder = buildContext(validateConfig({ ...minimalRaw, codeMap: { path: 'docs/code-map/' } })).codeMap;
+  assert.deepEqual(folder, {
+    path: 'docs/code-map',
+    layout: 'folder',
+    folder: true,
+    indexPath: 'docs/code-map/index.md',
+    maxDescription: 160,
+    checkCommand: 'node .claude/scripts/code-map-check.mjs docs/code-map --max 160',
+  });
+});
+
+test('codeMap context: the checker command carries a configured bead ID prefix and the configured limit', () => {
+  const c = buildContext(validateConfig({
+    ...minimalRaw, tracker: { idPrefix: 'shipr' }, codeMap: { path: 'docs/code-map', maxDescription: 120 },
+  })).codeMap;
+  assert.equal(c.checkCommand, 'node .claude/scripts/code-map-check.mjs docs/code-map --id-prefix shipr- --max 120');
+  assert.equal(c.maxDescription, 120);
 });

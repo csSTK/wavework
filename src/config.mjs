@@ -1,4 +1,4 @@
-import { readFileSync } from 'node:fs';
+import { lstatSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 /** Location of the config file, relative to the repository root. */
@@ -30,6 +30,7 @@ export const DEFAULTS = Object.freeze({
       quality: 'Findings: Code quality, UI & docs',
     }),
   }),
+  codeMap: Object.freeze({ maxDescription: 160 }),
   attribution: Object.freeze({ allowAiTrailer: false }),
   dashboard: Object.freeze({ enabled: true, port: 4690 }),
 });
@@ -192,19 +193,101 @@ function models(v, path, errs) {
   };
 }
 
+/** Bead ID prefix such as `shipr` or `my-proj`; stored with the trailing `-` (the part of an ID before its suffix). */
+function idPrefix(v, path, errs) {
+  if (typeof v !== 'string' || !/^[A-Za-z][A-Za-z0-9]*(-[A-Za-z0-9]+)*-?$/.test(v)) {
+    errs.push(`${path}: expected a bead ID prefix such as "shipr" (letters, digits and single "-" between them), got ${JSON.stringify(v)}`);
+    return undefined;
+  }
+  return v.endsWith('-') ? v : `${v}-`;
+}
+
 function tracker(v, path, errs) {
-  if (!obj(v, path, errs, ['kind'])) return undefined;
+  if (!obj(v, path, errs, ['kind', 'idPrefix'])) return undefined;
   const kind = field(v, 'kind', path, errs, (x, p, e) => {
     if (TRACKER_KINDS.includes(x)) return x;
     e.push(`${p}: must be ${TRACKER_KINDS.map((k) => `"${k}"`).join(' or ')}, got ${JSON.stringify(x)}`);
     return undefined;
   }, { fallback: DEFAULTS.tracker.kind });
-  return { kind };
+  const out = { kind };
+  if ('idPrefix' in v) out.idPrefix = idPrefix(v.idPrefix, join_(path, 'idPrefix'), errs);
+  return out;
+}
+
+/**
+ * Layout of the code map by its path: a path ending in `.md` is one file ("file", the original layout),
+ * anything else is a folder of per-module files with an `index.md` ("folder").
+ */
+export function codeMapLayout(path) {
+  return /\.md$/i.test(path) ? 'file' : 'folder';
+}
+
+function maxDescription(v, path, errs) {
+  if (Number.isInteger(v) && v >= 20 && v <= 1000) return v;
+  errs.push(`${path}: expected an integer from 20 to 1000, got ${JSON.stringify(v)}`);
+  return undefined;
 }
 
 function codeMap(v, path, errs) {
-  if (!obj(v, path, errs, ['path'])) return undefined;
-  return { path: field(v, 'path', path, errs, relativePrefix, { required: true }) };
+  if (!obj(v, path, errs, ['path', 'maxDescription'])) return undefined;
+  const mapPath = field(v, 'path', path, errs, relativePrefix, { required: true });
+  if (mapPath === undefined) return undefined;
+  if (codeMapLayout(mapPath) === 'file') {
+    if ('maxDescription' in v) errs.push(`${join_(path, 'maxDescription')}: only applies to the folder layout (a codeMap.path that does not end in .md)`);
+    return { path: mapPath };
+  }
+  if (mapPath === '.') {
+    errs.push(`${join_(path, 'path')}: a folder code map needs its own folder, not "." (use e.g. "docs/code-map")`);
+    return undefined;
+  }
+  if (mapPath.startsWith('-')) {
+    errs.push(`${join_(path, 'path')}: must not start with "-" (the checker would read it as an option)`);
+    return undefined;
+  }
+  if (!/^[A-Za-z0-9._/-]+$/.test(mapPath)) {
+    errs.push(`${join_(path, 'path')}: a folder code map path may only contain letters, digits, ".", "_", "-" and "/" (it is passed to the checker command)`);
+    return undefined;
+  }
+  return {
+    path: mapPath.replace(/\/+$/, ''),
+    maxDescription: field(v, 'maxDescription', path, errs, maxDescription, { fallback: DEFAULTS.codeMap.maxDescription }),
+  };
+}
+
+/**
+ * The part of the code map config that needs the file system: the folder layout needs `<path>/index.md`.
+ * Called by init and update (validateConfig stays pure). The file layout, and no codeMap, are not checked.
+ * The folder and `index.md` must be real (no symlinks), so the checker script never reads outside the repository.
+ *
+ * @param {string} repoRoot
+ * @param {object} config validated config
+ * @throws {Error} naming codeMap.path and what is missing
+ */
+export function assertCodeMapOnDisk(repoRoot, config) {
+  const map = config.codeMap;
+  if (!map || codeMapLayout(map.path) === 'file') return;
+  const where = `codeMap.path ${JSON.stringify(map.path)}`;
+  const hint = ' (a codeMap.path without .md is a folder; for a single file add the .md suffix)';
+  const stat = (rel) => {
+    try {
+      return lstatSync(join(repoRoot, rel));
+    } catch (e) {
+      if (e.code === 'ENOENT') return undefined;
+      throw new Error(`${where}: cannot inspect ${rel}: ${e.code ?? e.message}`);
+    }
+  };
+  let current = '';
+  for (const segment of map.path.split(/[\\/]/)) {
+    current = current ? `${current}/${segment}` : segment;
+    if (stat(current)?.isSymbolicLink()) throw new Error(`${where}: ${current} is a symlink (the code map folder must be a real folder inside the repository)`);
+  }
+  const dir = stat(map.path);
+  if (!dir) throw new Error(`${where}: folder does not exist; create it with an index.md (the folder layout needs ${map.path}/index.md), or point codeMap.path at a single .md file${hint}`);
+  if (!dir.isDirectory()) throw new Error(`${where}: must be a folder, but it is a file (end the path in .md for the single-file layout)`);
+  const index = stat(`${map.path}/index.md`);
+  if (!index) throw new Error(`${where}: must contain index.md (the folder layout reads the index first, then one module file)${hint}`);
+  if (index.isSymbolicLink()) throw new Error(`${where}: ${map.path}/index.md is a symlink`);
+  if (!index.isFile()) throw new Error(`${where}: ${map.path}/index.md must be a regular file`);
 }
 
 function uiSkill(v, path, errs) {

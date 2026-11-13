@@ -10,6 +10,8 @@ import { lineDiff } from './helpers/linediff.mjs';
 
 const at = (...p) => fileURLToPath(new URL(`../${p.join('/')}`, import.meta.url));
 const shipirConfig = validateConfig(JSON.parse(readFileSync(at('examples', 'shipir.wavework.json'), 'utf8')));
+// The pre-0.2 Shipir config (single-file code map): the golden diffs record the file layout.
+const shipirFileConfig = validateConfig(JSON.parse(readFileSync(at('test', 'fixtures', 'shipir-file-layout.wavework.json'), 'utf8')));
 const minimalConfig = validateConfig({
   baseBranch: 'main',
   checks: [{ name: 'app', dir: '.', whenPaths: ['src/'], focused: 'npm test', full: 'npm test' }],
@@ -85,9 +87,9 @@ test('renderTargets renders every target without leftovers (minimal config)', ()
 
 for (const name of NEW) {
   test(`golden: ${name} rendered with the Shipir config differs from the Shipir original only as recorded`, () => {
-    const t = byBase(templateTargets(shipirConfig))[name];
+    const t = byBase(templateTargets(shipirFileConfig))[name];
     assert.ok(t, `no target for ${name}`);
-    const ctx = buildContext(shipirConfig, { repoName: 'shipir' });
+    const ctx = buildContext(shipirFileConfig, { repoName: 'shipir' });
     const rendered = render(readFileSync(at('templates', t.template), 'utf8'), { ...ctx, ...t.vars }, t.template);
     const source = readFileSync(at('test', 'golden', 'shipir-source', name), 'utf8');
     assert.ok(!source.includes('\r'));
@@ -118,7 +120,7 @@ test('minimal config: text-to-task and watch-ci have intact frontmatter and no S
 });
 
 test('Shipir config keeps the optional UI and code-map hints in text-to-task', () => {
-  const out = skill(renderTargets(shipirConfig, { repoName: 'shipir' }), 'text-to-task').content;
+  const out = skill(renderTargets(shipirFileConfig, { repoName: 'shipir' }), 'text-to-task').content;
   assert.match(out, /apple-design/);
   assert.match(out, /docs\/CODE_MAP\.md/);
   assert.match(out, /model:haiku` or `model:sonnet`/);
@@ -223,4 +225,31 @@ test('dashboard targets stay unique and inside .claude/', () => {
 test('skill templates and targets agree on where the recorder lives', () => {
   const next = readFileSync(at('templates', 'skills', 'next-task-test', 'SKILL.md'), 'utf8');
   assert.ok(next.includes(`node ${DASHBOARD_DIR}/record.mjs`));
+});
+
+// ---------- code map checker script (0.2.0): folder layout only ----------
+
+const CHECKER = '.claude/scripts/code-map-check.mjs';
+const withMap = (codeMap) => validateConfig({
+  baseBranch: 'main', checks: minimalConfig.checks, ...(codeMap ? { codeMap } : {}),
+});
+
+test('folder layout installs the checker script (verbatim, mode 0644); file layout and no codeMap do not', () => {
+  const folder = templateTargets(withMap({ path: 'docs/code-map' })).find((t) => t.target === CHECKER);
+  assert.ok(folder, 'checker target missing for the folder layout');
+  assert.equal(folder.template, 'scripts/code-map-check.mjs');
+  assert.equal(folder.mode, 0o644);
+  assert.equal(folder.verbatim, true);
+  for (const cfg of [withMap({ path: 'docs/CODE_MAP.md' }), withMap(undefined), shipirFileConfig]) {
+    assert.equal(templateTargets(cfg).some((t) => t.target === CHECKER), false);
+  }
+  assert.ok(templateTargets(shipirConfig).some((t) => t.target === CHECKER), 'the example config uses the folder layout');
+});
+
+test('the checker target is the template byte for byte and the file layout adds nothing else', () => {
+  const rendered = renderTargets(withMap({ path: 'docs/code-map' }));
+  const script = rendered.find((t) => t.target === CHECKER);
+  assert.equal(script.content, readFileSync(at('templates', 'scripts', 'code-map-check.mjs'), 'utf8'));
+  const fileTargets = renderTargets(withMap({ path: 'docs/CODE_MAP.md' })).map((t) => t.target);
+  assert.deepEqual(rendered.map((t) => t.target).filter((t) => t !== CHECKER), fileTargets);
 });

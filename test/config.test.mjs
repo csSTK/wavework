@@ -1,10 +1,10 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, rmSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, rmSync, symlinkSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { validateConfig, loadConfig, DEFAULTS } from '../src/config.mjs';
+import { validateConfig, loadConfig, DEFAULTS, codeMapLayout, assertCodeMapOnDisk } from '../src/config.mjs';
 
 const area = (over = {}) => ({
   name: 'backend',
@@ -276,4 +276,111 @@ test('dashboard.tokensFile must be a repo-relative path to a .css file', () => {
   assert.match(errorOf(minimal({ dashboard: { tokensFile: 'styles/tokens.txt' } })), /dashboard\.tokensFile: must end in \.css/);
   assert.match(errorOf(minimal({ dashboard: { tokensFile: 'a\\b.css' } })), /dashboard\.tokensFile: .*backslash/);
   assert.match(errorOf(minimal({ dashboard: { tokensFile: 5 } })), /dashboard\.tokensFile: expected a non-empty string/);
+});
+
+// ---------- codeMap layouts (0.2.0) ----------
+
+const withMap = (codeMap, extra = {}) => minimal({ codeMap, ...extra });
+
+test('codeMap.path ending in .md is the single-file layout and stays exactly as before', () => {
+  assert.deepEqual(validateConfig(withMap({ path: 'docs/CODE_MAP.md' })).codeMap, { path: 'docs/CODE_MAP.md' });
+  assert.equal(codeMapLayout('docs/CODE_MAP.md'), 'file');
+  assert.equal(codeMapLayout('MAP.MD'), 'file');
+});
+
+test('codeMap.path without .md is the folder layout; maxDescription defaults to 160', () => {
+  assert.deepEqual(validateConfig(withMap({ path: 'docs/code-map' })).codeMap, { path: 'docs/code-map', maxDescription: 160 });
+  assert.equal(codeMapLayout('docs/code-map'), 'folder');
+  assert.equal(validateConfig(withMap({ path: 'docs/code-map', maxDescription: 80 })).codeMap.maxDescription, 80);
+});
+
+test('codeMap folder path: trailing slash is stripped, "." (whole repo) and unsafe paths are rejected', () => {
+  assert.equal(validateConfig(withMap({ path: 'docs/code-map/' })).codeMap.path, 'docs/code-map');
+  assert.match(errorOf(withMap({ path: '.' })), /codeMap\.path: .*folder.*not "\."/);
+  assert.match(errorOf(withMap({ path: '../map' })), /codeMap\.path: .*\.\./);
+  assert.match(errorOf(withMap({ path: '/abs/map' })), /codeMap\.path: .*relative/);
+  assert.match(errorOf(withMap({ path: 'docs/./map' })), /codeMap\.path: .*"\."/);
+  assert.match(errorOf(withMap({ path: 'docs\\..\\map' })), /codeMap\.path: .*\.\./);
+});
+
+test('codeMap.maxDescription must be an integer from 20 to 1000 and only applies to the folder layout', () => {
+  for (const bad of [0, 19, 1001, 1.5, '160', null, true]) {
+    assert.match(errorOf(withMap({ path: 'docs/code-map', maxDescription: bad })), /codeMap\.maxDescription: expected an integer from 20 to 1000/, String(bad));
+  }
+  assert.match(errorOf(withMap({ path: 'docs/MAP.md', maxDescription: 100 })), /codeMap\.maxDescription: only applies to the folder layout/);
+  assert.match(errorOf(withMap({ path: 'docs/code-map', bogus: 1 })), /codeMap\.bogus: unknown key/);
+});
+
+test('tracker.idPrefix is optional, normalised to end in "-", and must look like a bead ID prefix', () => {
+  assert.equal(validateConfig(minimal()).tracker.idPrefix, undefined);
+  assert.deepEqual(validateConfig(minimal({ tracker: { kind: 'beads' } })).tracker, { kind: 'beads' });
+  assert.equal(validateConfig(minimal({ tracker: { idPrefix: 'shipr' } })).tracker.idPrefix, 'shipr-');
+  assert.equal(validateConfig(minimal({ tracker: { idPrefix: 'my-proj-' } })).tracker.idPrefix, 'my-proj-');
+  for (const bad of ['', 'a b', '-x', 'x/y', 'a.b', 5]) {
+    assert.match(errorOf(minimal({ tracker: { idPrefix: bad } })), /tracker\.idPrefix/, String(bad));
+  }
+});
+
+function mapRepo(files = {}) {
+  const root = mkdtempSync(join(tmpdir(), 'wavework-map-'));
+  for (const [rel, content] of Object.entries(files)) {
+    mkdirSync(join(root, rel, '..'), { recursive: true });
+    writeFileSync(join(root, rel), content);
+  }
+  return root;
+}
+const mapProblem = (root, codeMap) => {
+  try {
+    assertCodeMapOnDisk(root, validateConfig(withMap(codeMap)));
+  } catch (e) {
+    return e.message;
+  }
+  return null;
+};
+
+test('assertCodeMapOnDisk: folder with index.md passes; no codeMap and the file layout are not checked', () => {
+  const root = mapRepo({ 'docs/code-map/index.md': '# Code map\n' });
+  try {
+    assert.equal(mapProblem(root, { path: 'docs/code-map' }), null);
+    assert.equal(mapProblem(root, { path: 'docs/code-map/' }), null);
+    assert.equal(mapProblem(root, { path: 'docs/NOT_THERE.md' }), null);
+    assert.doesNotThrow(() => assertCodeMapOnDisk(root, validateConfig(minimal())));
+  } finally { rmSync(root, { recursive: true, force: true }); }
+});
+
+test('assertCodeMapOnDisk: missing folder, missing index.md, file or directory in the wrong place fail with a clear error', () => {
+  const root = mapRepo({ 'docs/code-map/root.md': '- x: y\n', 'docs/file': 'x', 'idx/code-map/index.md/inner.md': 'x' });
+  try {
+    assert.match(mapProblem(root, { path: 'docs/nowhere' }), /codeMap\.path "docs\/nowhere": folder does not exist.*index\.md/);
+    assert.match(mapProblem(root, { path: 'docs/code-map' }), /codeMap\.path "docs\/code-map": must contain index\.md/);
+    for (const p of ['docs/nowhere', 'docs/code-map']) assert.match(mapProblem(root, { path: p }), /a codeMap\.path without \.md is a folder; for a single file add the \.md suffix/, p);
+    assert.match(mapProblem(root, { path: 'docs/file' }), /codeMap\.path "docs\/file": must be a folder/);
+    assert.match(mapProblem(root, { path: 'idx/code-map' }), /index\.md must be a regular file/);
+  } finally { rmSync(root, { recursive: true, force: true }); }
+});
+
+test('assertCodeMapOnDisk: a symlinked folder or index.md (also one leaving the repo) is refused', () => {
+  const root = mapRepo({ 'real/index.md': '# x\n' });
+  const outside = mapRepo({ 'index.md': '# outside\n' });
+  try {
+    mkdirSync(join(root, 'docs'));
+    symlinkSync(outside, join(root, 'docs/linked'));
+    symlinkSync(join(root, 'real'), join(root, 'docs/inside'));
+    mkdirSync(join(root, 'docs/sub'));
+    symlinkSync(join(outside, 'index.md'), join(root, 'docs/sub/index.md'));
+    assert.match(mapProblem(root, { path: 'docs/linked' }), /symlink/);
+    assert.match(mapProblem(root, { path: 'docs/inside' }), /symlink/);
+    assert.match(mapProblem(root, { path: 'docs/sub' }), /symlink/);
+  } finally { rmSync(root, { recursive: true, force: true }); rmSync(outside, { recursive: true, force: true }); }
+});
+
+test('codeMap folder path may only contain letters, digits and . _ - / (it ends up in a command line)', () => {
+  for (const bad of ['docs/code map', 'docs/code;map', 'docs/$x', 'docs/"x"']) {
+    assert.match(errorOf(withMap({ path: bad })), /codeMap\.path: .*may only contain/, bad);
+  }
+});
+
+test('codeMap folder path must not start with "-" (the checker would read it as an option)', () => {
+  for (const bad of ['-docs/map', '--max']) assert.match(errorOf(withMap({ path: bad })), /codeMap\.path: .*must not start with "-"/, bad);
+  assert.doesNotThrow(() => validateConfig(withMap({ path: 'docs/-map' })));
 });

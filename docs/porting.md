@@ -23,6 +23,10 @@ Identical to Shipir with its config: `next-task-beads`, `next-task-branch`. This
 - Test-framework conventions (JUnit, Testcontainers, Vitest, Playwright fixtures) are not configurable; the skills say "follow the area's existing framework".
 - `findings.epicTitles` customises titles and adds categories, but class (Real/Quality) and typical content are built in for the four default slugs; other slugs count as Quality.
 
+## Code map layouts (0.2.0)
+
+The goldens are rendered with `test/fixtures/shipir-file-layout.wavework.json` (single-file `codeMap.path` `docs/CODE_MAP.md`), so they keep recording the file layout, which renders exactly as in 0.1.x. `examples/shipir.wavework.json` uses the folder layout (`docs/code-map`); `test/templates.test.mjs` checks that it differs from the fixture only in `codeMap`. The folder layout changes the code map wording in `next-task-code`, `next-task-implement`, `next-task-plan`, `next-task-finish`, `next-task-review`, `text-to-task` and the implementer agents (`{{#if codeMap.folder}}`): index first, then only the module file; the checker (`templates/scripts/code-map-check.mjs`, ported from Shipir's `tools/code-map/check.mjs`) is installed verbatim as `.claude/scripts/code-map-check.mjs` and its tests (`test/code-map-check.test.mjs`) run against the rendered script. These folder-layout texts are not part of the Shipir golden; they are covered by the rendering tests in `test/templates.test.mjs`.
+
 ## Intended differences per skill
 
 ## next-task

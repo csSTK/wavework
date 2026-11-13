@@ -731,3 +731,92 @@ test('a no-op update prints the repository line and a single result line', async
     assert.match(lines[0], /^wavework: repository /);
   } finally { s.done(); }
 });
+
+// ---------- code map layouts (0.2.0), real templates ----------
+
+const MAP_CONFIG = (codeMap) => ({ ...CONFIG, dashboard: { enabled: false }, codeMap });
+const CHECKER_REL = '.claude/scripts/code-map-check.mjs';
+
+test('init with the folder layout and an index.md installs the checker and renders the folder text', async () => {
+  const repo = makeRepo({ 'docs/code-map/index.md': '# Code map\n' });
+  try {
+    writeConfig(repo, MAP_CONFIG({ path: 'docs/code-map' }));
+    const r = await cli(['init'], repo);
+    assert.equal(r.code, 0, r.stderr);
+    assert.match(r.stdout, /create\s+scripts\/code-map-check\.mjs/);
+    assert.ok(existsSync(join(repo, CHECKER_REL)));
+    assert.match(readFileSync(join(repo, '.claude/skills/next-task-finish/SKILL.md'), 'utf8'), /code-map-check\.mjs docs\/code-map --max 160/);
+    assert.ok(readJson(repo, '.claude/wavework.lock.json').files['scripts/code-map-check.mjs']);
+  } finally { cleanup(repo); }
+});
+
+test('init with the folder layout fails clearly and writes nothing when the folder or its index.md is missing', async () => {
+  const noFolder = makeRepo();
+  const noIndex = makeRepo({ 'docs/code-map/root.md': '- a: b\n' });
+  try {
+    for (const [repo, re] of [[noFolder, /folder does not exist/], [noIndex, /must contain index\.md/]]) {
+      writeConfig(repo, MAP_CONFIG({ path: 'docs/code-map' }));
+      const before = snapshot(repo);
+      const r = await cli(['init'], repo);
+      assert.equal(r.code, 1);
+      assert.match(r.stderr, /codeMap\.path "docs\/code-map"/);
+      assert.match(r.stderr, re);
+      assert.deepEqual(snapshot(repo), before, 'repo must be untouched');
+    }
+    // dry-run validates too
+    assert.equal((await cli(['init', '--dry-run'], noFolder)).code, 1);
+  } finally { cleanup(noFolder, noIndex); }
+});
+
+test('init with the file layout needs no folder and installs no checker', async () => {
+  const repo = makeRepo();
+  try {
+    writeConfig(repo, MAP_CONFIG({ path: 'docs/CODE_MAP.md' }));
+    const r = await cli(['init'], repo);
+    assert.equal(r.code, 0, r.stderr);
+    assert.ok(!existsSync(join(repo, CHECKER_REL)));
+    assert.match(readFileSync(join(repo, '.claude/skills/next-task-code/SKILL.md'), 'utf8'), /docs\/CODE_MAP\.md/);
+  } finally { cleanup(repo); }
+});
+
+test('update validates the folder layout too, and switching layouts adds / removes the checker', async () => {
+  const repo = makeRepo({ 'docs/CODE_MAP.md': '# map\n' });
+  try {
+    writeConfig(repo, MAP_CONFIG({ path: 'docs/CODE_MAP.md' }));
+    assert.equal((await cli(['init'], repo)).code, 0);
+    assert.ok(!existsSync(join(repo, CHECKER_REL)));
+
+    writeConfig(repo, MAP_CONFIG({ path: 'docs/code-map' }));
+    const failed = await cli(['update'], repo);
+    assert.equal(failed.code, 1);
+    assert.match(failed.stderr, /folder does not exist/);
+    assert.ok(!existsSync(join(repo, CHECKER_REL)), 'a failed update changes nothing');
+
+    put(repo, 'docs/code-map/index.md', '# Code map\n');
+    const added = await cli(['update'], repo);
+    assert.equal(added.code, 0, added.stderr);
+    assert.match(added.stdout, /create\s+scripts\/code-map-check\.mjs/);
+    assert.ok(existsSync(join(repo, CHECKER_REL)));
+
+    writeConfig(repo, MAP_CONFIG({ path: 'docs/CODE_MAP.md' }));
+    const removed = await cli(['update'], repo);
+    assert.equal(removed.code, 0, removed.stderr);
+    assert.match(removed.stdout, /delete\s+scripts\/code-map-check\.mjs/);
+    assert.ok(!existsSync(join(repo, CHECKER_REL)));
+    assert.equal(readJson(repo, '.claude/wavework.lock.json').files['scripts/code-map-check.mjs'], undefined);
+  } finally { cleanup(repo); }
+});
+
+test('a locally edited checker is kept for review when the layout is switched away', async () => {
+  const repo = makeRepo({ 'docs/code-map/index.md': '# Code map\n' });
+  try {
+    writeConfig(repo, MAP_CONFIG({ path: 'docs/code-map' }));
+    assert.equal((await cli(['init'], repo)).code, 0);
+    writeFileSync(join(repo, CHECKER_REL), '// mine\n');
+    writeConfig(repo, MAP_CONFIG({ path: 'docs/CODE_MAP.md' }));
+    const r = await cli(['update'], repo);
+    assert.equal(r.code, 2);
+    assert.match(r.stdout, /review\s+scripts\/code-map-check\.mjs: removed upstream but edited locally, kept/);
+    assert.equal(readFileSync(join(repo, CHECKER_REL), 'utf8'), '// mine\n');
+  } finally { cleanup(repo); }
+});

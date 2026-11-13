@@ -1,5 +1,5 @@
 import { join } from 'node:path';
-import { loadConfig } from '../config.mjs';
+import { assertCodeMapOnDisk, loadConfig } from '../config.mjs';
 import {
   apply, defaultTargets, loadHookDefs, PACKAGE_TEMPLATES, plan, readLock, renderTargets, report,
 } from './sync.mjs';
@@ -18,6 +18,7 @@ export async function update(args, ctx) {
   const lock = readLock(claudeDir);
   if (!lock) throw new Error('no .claude/wavework.lock.json: run `wavework init` first');
   const config = loadConfig(root);
+  assertCodeMapOnDisk(root, config);
   const provider = ctx.targets ?? await defaultTargets();
   const rendered = renderTargets(config, provider, ctx.templatesDir ?? PACKAGE_TEMPLATES, repoName);
   const result = plan({ claudeDir, rendered, lock, defs: loadHookDefs(ctx.hooks, config) });

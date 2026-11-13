@@ -1,0 +1,54 @@
+{
+  "baseBranch": "dev",
+  "worktree": {
+    "pathPattern": "../{repo}-{unit}",
+    "branchPattern": "{prefix}/{unit}-{slug}"
+  },
+  "checks": [
+    {
+      "name": "backend",
+      "dir": "backend",
+      "whenPaths": ["backend/"],
+      "focused": "./backend/mvnw -f backend/pom.xml test -Dtest='dev.bethge.shipir.<pkg>.**' -Dsurefire.failIfNoSpecifiedTests=false",
+      "full": "./backend/mvnw -f backend/pom.xml verify"
+    },
+    {
+      "name": "frontend",
+      "dir": "frontend",
+      "whenPaths": ["frontend/"],
+      "focused": "pnpm vitest run <changed dirs>",
+      "full": "pnpm lint && pnpm test && pnpm build",
+      "lint": "pnpm lint",
+      "build": "pnpm build",
+      "e2e": "pnpm e2e"
+    }
+  ],
+  "models": {
+    "planning": "opus",
+    "orchestration": "opus",
+    "implementers": {
+      "default": "sonnet",
+      "rules": {
+        "haiku": "Small, well-specified, low-risk changes: boilerplate, renames, simple DTOs or entities, config tweaks, docs, straightforward tests. Never for auth, permissions, remote host access or the audit log.",
+        "sonnet": "Everything else: multi-file features, non-trivial logic, debugging, refactors, concurrency and streaming, and anything touching auth, permissions, remote host access or the audit log. When unsure, use sonnet."
+      }
+    }
+  },
+  "tracker": { "kind": "beads" },
+  "codeMap": { "path": "docs/CODE_MAP.md" },
+  "uiSkill": { "name": "apple-design", "appliesTo": ["frontend/"] },
+  "findings": {
+    "epicTitles": {
+      "security": "Findings: Security & authorization",
+      "bugs": "Findings: Bugs & correctness",
+      "tests": "Findings: Tests & CI stability",
+      "quality": "Findings: Code quality, UI & docs"
+    }
+  },
+  "attribution": { "allowAiTrailer": false },
+  "dashboard": {
+    "enabled": true,
+    "port": 4690,
+    "tokensFile": "frontend/src/shared/styles/tokens.css"
+  }
+}

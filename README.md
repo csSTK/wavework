@@ -49,7 +49,7 @@ For each file `init` would write that already exists: identical content is kept 
 
 - `.claude/skills/`: the 16 skills (`next-task`, `next-task-*`, `text-to-task`, `watch-ci`)
 - `.claude/agents/implementer-<model>.md`: one implementer agent per model in the config (the default config gives `implementer-sonnet` and `implementer-haiku`)
-- `.claude/scripts/red-green-check.sh` and its test
+- `.claude/scripts/red-green-check.sh` and its test, plus `.claude/scripts/code-map-check.mjs` with a folder code map
 - `.claude/wavework/dashboard/`: the pipeline dashboard (with `dashboard.enabled`, the default)
 - `.claude/settings.json`: the dashboard's two hooks, merged into your settings without touching other entries
 - `.claude/wavework.json`: your configuration (never overwritten)
@@ -81,6 +81,8 @@ The configuration is `.claude/wavework.json`. It names the base branch, the test
   ]
 }
 ```
+
+Optional `codeMap` points the agents at a map of the codebase: a single file (`"path": "docs/CODE_MAP.md"`) or, for larger repositories, a folder with an `index.md` and one short-entry file per module (`"path": "docs/code-map"`, optional `maxDescription`, default 160). The folder layout also installs a checker, `.claude/scripts/code-map-check.mjs`, that `next-task-finish` runs before committing. Optional `tracker.idPrefix` names your bead ID prefix for it.
 
 Every field, its default and its validation rules are in [docs/config.md](docs/config.md). A complete example for a multi-area project is [examples/shipir.wavework.json](examples/shipir.wavework.json).
 

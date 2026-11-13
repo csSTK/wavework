@@ -98,7 +98,7 @@ test('tag guard fails unless the tag equals v + package.json version', () => {
 });
 
 test('CHANGELOG has a section for the current version above the link references, with an empty Unreleased on top', () => {
-  assert.equal(pkg.version, '0.1.2');
+  assert.equal(pkg.version, '0.2.0');
   const unreleased = changelog.indexOf('## [Unreleased]');
   const released = changelog.indexOf(`## [${pkg.version}] - 2026-11-13`);
   assert.notEqual(unreleased, -1, 'missing ## [Unreleased]');

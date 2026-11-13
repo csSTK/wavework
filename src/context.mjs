@@ -4,6 +4,8 @@
  * as Markdown, so the template engine needs no loops.
  */
 
+import { codeMapLayout } from './config.mjs';
+
 const FINDING_CLASSES = {
   security: { kind: 'Real', typical: 'auth, permission, token, egress, path, subprocess, secret handling, missing re-authorization' },
   bugs: { kind: 'Real', typical: 'wrong behaviour, data loss, races, broken UX flows' },
@@ -60,6 +62,28 @@ export function implementerAgents(config) {
     rule: Object.hasOwn(rules, model) ? rules[model] : null,
     isDefault: model === fallback,
   }));
+}
+
+/** Where `init` installs the code map checker (src/targets.mjs) and how the skills call it. */
+export const CODE_MAP_CHECKER = '.claude/scripts/code-map-check.mjs';
+
+/**
+ * Code map variables for the templates. File layout: the path as configured (templates render exactly the pre-0.2 text).
+ * Folder layout: the index, the description limit and the checker command; the bead ID prefix is passed only when the
+ * config names one (the checker derives it from `.beads/` otherwise).
+ */
+function codeMapContext(config) {
+  const map = config.codeMap;
+  if (!map) return false;
+  if (codeMapLayout(map.path) === 'file') return { ...map, layout: 'file', folder: false };
+  const prefix = config.tracker.idPrefix ? ` --id-prefix ${config.tracker.idPrefix}` : '';
+  return {
+    ...map,
+    layout: 'folder',
+    folder: true,
+    indexPath: `${map.path}/index.md`,
+    checkCommand: `node ${CODE_MAP_CHECKER} ${map.path}${prefix} --max ${map.maxDescription}`,
+  };
 }
 
 const AREA_KINDS = [['maven', /\bmvnw?\b/], ['vitest', /\bvitest\b/]];
@@ -121,7 +145,7 @@ export function buildContext(config, options = {}) {
     hasLint: checks.some((a) => a.lint),
     hasE2e: withE2e.length > 0,
     e2eList: withE2e.map((a) => `- ${code(a.name)}: ${code(a.e2e)}`).join('\n'),
-    codeMap: config.codeMap ?? false,
+    codeMap: codeMapContext(config),
     uiSkill: config.uiSkill ?? false,
     uiPaths: config.uiSkill ? config.uiSkill.appliesTo.map(code).join(', ') : '',
     findingsEpics: findingsRows(titles),

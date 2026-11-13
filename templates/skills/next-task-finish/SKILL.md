@@ -28,7 +28,11 @@ Record: `step-start --step finish` at the start. The full gate in step 2 records
    - Beads that aren't done stay open, and the epic stays open too. Say so in the report.
 5. **Write documentation.** Keep it short, following the CLAUDE.md rule:
    {{#if codeMap}}
+   {{#if codeMap.folder}}
+   - Code Map (`{{codeMap.path}}/`): check that every added, moved or removed file has a correct one-line entry in its module file, then run `{{codeMap.checkCommand}}` and fix every violation before committing (exit code 0 required).
+   {{else}}
    - Code Map (`{{codeMap.path}}`): check that every added, moved or removed file has a correct one-line entry.
+   {{/if}}
    {{/if}}
    - README.md: update only if setup, commands or features visible to users changed.
    - CLAUDE.md: update Build & Test or the rules only if they changed.

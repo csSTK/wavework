@@ -26,7 +26,9 @@ Minimal valid config:
 | `models.implementers.default` | string | no | `"sonnet"` |
 | `models.implementers.rules` | map model name to text | no | haiku and sonnet rules (see `DEFAULTS` in `src/config.mjs`) |
 | `tracker.kind` | `"beads"` | no | `"beads"` |
-| `codeMap.path` | string | required if `codeMap` is present | `codeMap` omitted |
+| `tracker.idPrefix` | bead ID prefix, e.g. `"shipr"` | no | derived by the code map checker from `.beads/` |
+| `codeMap.path` | string, a `.md` file or a folder | required if `codeMap` is present | `codeMap` omitted |
+| `codeMap.maxDescription` | integer 20 to 1000, folder layout only | no | `160` |
 | `uiSkill.name` | string | required if `uiSkill` is present | `uiSkill` omitted |
 | `uiSkill.appliesTo` | array of path prefixes, at least one | required if `uiSkill` is present | |
 | `findings.epicTitles` | map category to epic title | no | four categories, see below |
@@ -79,9 +81,20 @@ When `rules` is given it replaces the default rules entirely.
 
 `kind` must be `"beads"`, the only supported tracker.
 
+`idPrefix` (optional): the prefix of your bead IDs, with or without the trailing `-` (`"shipr"` for `shipr-abc1`; stored as `shipr-`). Only the code map checker uses it (it must not find bead IDs in code map entries). Without it the checker reads the prefix at run time from `.beads/config.yaml` (an uncommented `issue-prefix:`), else from the first ID in `.beads/issues.jsonl`, and skips the rule when it finds none. Set it when your repo has neither.
+
 ### `codeMap` (optional)
 
-`path`: repo-relative path (no leading `/`, no `..` segments) of a file listing one line per source file that implementers keep current. Example: `"docs/CODE_MAP.md"`. Omit the whole object if the repo has no code map.
+Lets agents find files without reading the whole codebase. Omit the whole object if the repo has no code map. `path` is repo-relative (no leading `/`, no `..` segments) and selects one of two layouts:
+
+- **File layout:** `path` ends in `.md`, e.g. `"docs/CODE_MAP.md"`. One file with one line per source file (`path: what it is`) that implementers keep current. Nothing is checked and no script is installed; the rendered skills are the same as in 0.1.x.
+- **Folder layout:** `path` does not end in `.md`, e.g. `"docs/code-map"`. The folder holds one map file per module (any depth) and an `index.md` that maps path prefixes to those files. Agents read the index, open only the module file for their path, and update its lines in the same change; each entry is one line `- <path>[, <path>...]: <description>` of at most `maxDescription` characters. `init` and `update` require `<path>/index.md` (a real folder and file, no symlinks) and fail with `codeMap.path "...": must contain index.md` otherwise; the path may only contain letters, digits, `.`, `_`, `-` and `/`, and `.` itself is not allowed. The folder layout also installs `.claude/scripts/code-map-check.mjs`; `next-task-finish` runs it and fixes violations before committing, `next-task-review` runs it read-only. Switching the layout in the config and running `update` adds or removes the script (a locally edited copy is kept for review).
+
+A path without `.md` is always a folder: in 0.1.2 an extension-less single file such as `"docs/CODE_MAP"` was accepted, now `update` fails until you add the `.md` suffix.
+
+`maxDescription` (folder layout only, default 160): the longest description the checker accepts and the skills tell agents to write. Using it with a `.md` path is an error.
+
+The checker (`node .claude/scripts/code-map-check.mjs [dir] [--id-prefix p-] [--max N]`) enforces, per entry: description length, no bead ID (see `tracker.idPrefix`), every path exists with exact case (`{A,B}` braces and `*`, `?`, `**` globs allowed; the path must be normalized and inside the repository), no path listed twice; per folder: every map file is linked from `index.md` and every index link exists. Exit code 0 ok, 1 violations printed as `file:line: message`, 2 usage error.
 
 ### `uiSkill` (optional)
 

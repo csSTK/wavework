@@ -140,4 +140,34 @@ expect_exit 0 "npx wavework init --adopt" npx wavework init --adopt
 assert_file .claude/wavework.lock.json
 expect_exit 0 "npx wavework update" npx wavework update
 
+echo "== repository E: folder code map layout (index.md required, checker installed and runnable)"
+E="$WORK/code-map"
+new_repo "$E"
+cd "$E"
+node -e '
+  const fs = require("fs");
+  const config = JSON.parse(fs.readFileSync(process.argv[1], "utf8"));
+  config.codeMap = { path: "docs/code-map" };
+  fs.writeFileSync("folder.wavework.json", JSON.stringify(config, null, 2) + "\n");
+' "$ROOT/test/fixtures/minimal.wavework.json"
+expect_exit 1 "npx wavework init --config <file> (folder code map without index.md)" npx wavework init --config folder.wavework.json
+[ ! -e .claude/wavework.lock.json ] || fail "init wrote the lock although docs/code-map/index.md is missing"
+mkdir -p docs/code-map
+printf '# Code map\n\n| Path prefix | Map file |\n|---|---|\n| root files | [root.md](root.md) |\n' > docs/code-map/index.md
+printf -- '- package.json: package manifest\n' > docs/code-map/root.md
+expect_exit 0 "npx wavework init --config <file> (folder code map)" npx wavework init --config folder.wavework.json
+assert_file .claude/scripts/code-map-check.mjs
+grep -q 'code-map-check.mjs docs/code-map --max 160' .claude/skills/next-task-finish/SKILL.md || fail "next-task-finish does not run the checker"
+expect_exit 0 "node .claude/scripts/code-map-check.mjs docs/code-map" node .claude/scripts/code-map-check.mjs docs/code-map
+printf -- '- missing.txt: not there\n' >> docs/code-map/root.md
+expect_exit 1 "node .claude/scripts/code-map-check.mjs docs/code-map (violation)" node .claude/scripts/code-map-check.mjs docs/code-map
+node -e '
+  const fs = require("fs");
+  const config = JSON.parse(fs.readFileSync(".claude/wavework.json", "utf8"));
+  config.codeMap = { path: "docs/CODE_MAP.md" };
+  fs.writeFileSync(".claude/wavework.json", JSON.stringify(config, null, 2) + "\n");
+'
+expect_exit 0 "npx wavework update (back to the single-file layout)" npx wavework update
+[ ! -e .claude/scripts/code-map-check.mjs ] || fail "update did not remove the checker after switching to the file layout"
+
 echo "smoke: OK (wavework $VERSION, node $(node -v))"

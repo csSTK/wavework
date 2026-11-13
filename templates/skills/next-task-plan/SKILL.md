@@ -23,7 +23,11 @@ The **work set** is either an epic's children (`/next-task`) or the beads passed
 ## Part 2: Plan the implementation
 
 {{#if codeMap}}
+{{#if codeMap.folder}}
+Read `{{codeMap.indexPath}}` and grep or read only the module files that cover the paths named in each child (not the whole folder), plus those paths, to work out the **file set** each child will touch. Only read code where the map isn't enough.
+{{else}}
 Grep `{{codeMap.path}}` (read only the parts you need), plus the paths named in each child, to work out the **file set** each child will touch. Only read code where the map isn't enough.
+{{/if}}
 {{else}}
 Search the code for the paths named in each child to work out the **file set** each child will touch. Read only what you need.
 {{/if}}
@@ -32,7 +36,11 @@ Build **waves**:
 - Wave 1 holds the children with no open dependencies inside the epic. The next wave holds the children whose dependencies are all in earlier waves. Continue the same way.
 - Children in the same wave run in parallel only if their file sets don't overlap. Shared files count as overlapping: build and dependency manifests (lockfiles included), shared configuration, `CLAUDE.md`, `README.md`. If two overlap, move one into the next wave.
   {{#if codeMap}}
+  {{#if codeMap.folder}}
+  - Exception: Code Map lines in the module files under `{{codeMap.path}}/` (`index.md` changes only when a module file is added or removed). Tell parallel agents to edit only their own lines; you resolve conflicts while committing.
+  {{else}}
   - Exception: Code Map lines in `{{codeMap.path}}`. Tell parallel agents to edit only their own lines; you resolve conflicts while committing.
+  {{/if}}
   {{/if}}
 
 Show the plan to the user as a short table: wave, child, model, file set, plus the worktree path. Then continue without waiting, unless the plan surfaced a problem.

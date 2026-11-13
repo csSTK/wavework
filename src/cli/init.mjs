@@ -1,6 +1,6 @@
 import { existsSync, readFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
-import { loadConfig, validateConfig, CONFIG_PATH } from '../config.mjs';
+import { assertCodeMapOnDisk, loadConfig, validateConfig, CONFIG_PATH } from '../config.mjs';
 import {
   apply, defaultTargets, loadHookDefs, PACKAGE_TEMPLATES, plan, readLock, renderTargets, report,
 } from './sync.mjs';
@@ -87,6 +87,7 @@ export async function init(args, ctx) {
   const dryRun = args['--dry-run'] === true;
   const adopt = args['--adopt'] === true;
   const { config, text } = resolveConfig(args, ctx, root, ctx.stdout, adopt);
+  assertCodeMapOnDisk(root, config);
   const provider = ctx.targets ?? await defaultTargets();
   const rendered = renderTargets(config, provider, ctx.templatesDir ?? PACKAGE_TEMPLATES, repoName);
   const result = plan({ claudeDir, rendered, lock: { files: {}, hooks: [] }, defs: loadHookDefs(ctx.hooks, config), adopt });

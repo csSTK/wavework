@@ -17,7 +17,9 @@ const SKILLS = [
 ];
 const template = (skill) => readFileSync(at('templates', 'skills', skill, 'SKILL.md'), 'utf8');
 
-const shipirConfig = validateConfig(JSON.parse(readFileSync(at('examples', 'shipir.wavework.json'), 'utf8')));
+// The pre-0.2 Shipir config (single-file code map): the golden diffs record the file layout.
+const shipirConfig = validateConfig(JSON.parse(readFileSync(at('test', 'fixtures', 'shipir-file-layout.wavework.json'), 'utf8')));
+const shipirFolderConfig = validateConfig(JSON.parse(readFileSync(at('examples', 'shipir.wavework.json'), 'utf8')));
 // Golden runs keep Shipir's dashboard Record lines and its repo name so the diff only shows real generalisations.
 const shipirContext = buildContext(shipirConfig, { repoName: 'shipir' });
 const minimalRaw = {
@@ -150,3 +152,77 @@ test('next-task-e2e lists the commands once: no blank line inside the list, no s
     assert.equal((run.match(/Commands per area/g) ?? []).length, 1);
   }
 });
+
+// ---------- code map layouts (0.2.0) ----------
+
+const folderConfig = (codeMap = { path: 'docs/code-map' }) => validateConfig({ ...minimalRaw, dashboard: { enabled: false }, codeMap });
+const folderCtx = buildContext(folderConfig());
+const fileCtx = buildContext(folderConfig({ path: 'docs/CODE_MAP.md' }));
+const rendered = (skill, ctx) => render(template(skill), ctx, skill);
+const CODE_MAP_SKILLS = ['next-task-code', 'next-task-implement', 'next-task-plan', 'next-task-review', 'next-task-finish', 'text-to-task'];
+
+test('the examples/shipir.wavework.json is the file-layout fixture with the folder path (golden stays meaningful)', () => {
+  const fixture = JSON.parse(readFileSync(at('test', 'fixtures', 'shipir-file-layout.wavework.json'), 'utf8'));
+  const example = JSON.parse(readFileSync(at('examples', 'shipir.wavework.json'), 'utf8'));
+  assert.equal(fixture.codeMap.path, 'docs/CODE_MAP.md');
+  assert.equal(example.codeMap.path, 'docs/code-map');
+  assert.deepEqual({ ...example, codeMap: fixture.codeMap }, fixture);
+  assert.equal(shipirFolderConfig.codeMap.path, 'docs/code-map');
+});
+
+test('file layout: every code map skill names the single file and none mentions the folder layout', () => {
+  for (const skill of [...CODE_MAP_SKILLS, 'next-task-implement']) {
+    const out = rendered(skill, fileCtx);
+    assert.match(out, /docs\/CODE_MAP\.md/, skill);
+    assert.doesNotMatch(out, /index\.md|code-map-check|module file/, `${skill} leaks the folder layout`);
+  }
+  assert.match(render(readFileSync(at('templates', 'agents', 'implementer.md'), 'utf8'), { ...fileCtx, agent: { isDefault: true, defaultName: 'x', name: 'x', model: 'x', description: 'x', rule: '' } }), /grep `docs\/CODE_MAP\.md` to find files/);
+});
+
+test('folder layout: no skill points at a single code map file; each names the index and module file', () => {
+  for (const skill of CODE_MAP_SKILLS) {
+    const out = rendered(skill, folderCtx);
+    assert.doesNotMatch(out, /CODE_MAP/, skill);
+    assert.match(out, /docs\/code-map/, skill);
+  }
+  for (const skill of ['next-task-implement', 'next-task-code', 'next-task-plan', 'text-to-task']) {
+    assert.match(rendered(skill, folderCtx), /module file/, skill);
+  }
+  assert.match(rendered('next-task-implement', folderCtx), /Read `docs\/code-map\/index\.md`.*then grep or read only the module file/);
+  assert.match(rendered('next-task-code', folderCtx), /same change.*at most 160 characters.*no bead IDs/s);
+});
+
+test('folder layout: next-task-finish runs the checker and fixes violations before committing', () => {
+  const out = rendered('next-task-finish', folderCtx);
+  assert.match(out, /run `node \.claude\/scripts\/code-map-check\.mjs docs\/code-map --max 160`/);
+  assert.match(out, /fix every violation before (the commit|committing)/);
+  assert.doesNotMatch(rendered('next-task-finish', fileCtx), /code-map-check/);
+});
+
+test('folder layout: next-task-review flags missing, stale and over-limit entries (also in the branch review)', () => {
+  const out = rendered('next-task-review', folderCtx);
+  assert.match(out, /missing, stale or over-limit/);
+  assert.match(out, /over 160 characters/);
+  assert.match(out, /node \.claude\/scripts\/code-map-check\.mjs docs\/code-map --max 160/);
+  assert.match(out, /whole branch[^\n]*docs\/code-map|code map entries/);
+});
+
+test('folder layout: next-task-plan lets parallel agents edit their own module file lines', () => {
+  const out = rendered('next-task-plan', folderCtx);
+  assert.match(out, /Exception: Code Map lines in the module files under `docs\/code-map\/`/);
+  assert.match(out, /`index\.md`/);
+});
+
+test('folder layout: the limit and the bead ID prefix of the config reach the skills', () => {
+  const ctx = buildContext(validateConfig({ ...minimalRaw, tracker: { idPrefix: 'proj' }, codeMap: { path: 'map', maxDescription: 90 } }));
+  assert.match(rendered('next-task-finish', ctx), /map --id-prefix proj- --max 90/);
+  assert.match(rendered('next-task-code', ctx), /at most 90 characters/);
+});
+
+for (const skill of SKILLS) {
+  test(`folder layout: ${skill} renders cleanly (no braces, empty code or undefined)`, () => {
+    const out = rendered(skill, folderCtx);
+    assert.doesNotMatch(out, /\{\{|\}\}|\bundefined\b|\[object Object\]/);
+    assert.doesNotMatch(out, /(^|[^`])``([^`]|$)/);
+  });
+}

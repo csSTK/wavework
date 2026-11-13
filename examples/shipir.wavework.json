@@ -35,7 +35,7 @@
     }
   },
   "tracker": { "kind": "beads" },
-  "codeMap": { "path": "docs/CODE_MAP.md" },
+  "codeMap": { "path": "docs/code-map", "maxDescription": 160 },
   "uiSkill": { "name": "apple-design", "appliesTo": ["frontend/"] },
   "findings": {
     "epicTitles": {

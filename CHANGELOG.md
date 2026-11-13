@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-11-13
+
+### Added
+
+- Folder code map layout. `codeMap.path` may now name a folder (a path that does not end in `.md`, e.g. `"docs/code-map"`) instead of a single file. The folder must contain an `index.md` (path prefix to module file table) next to one map file per module; `init` and `update` check this and fail with a clear error before writing anything. Optional `codeMap.maxDescription` (integer 20 to 1000, default 160) sets the longest allowed entry description. The skills then tell agents to read the index, open only the module file that covers their path, and update its lines in the same change (`next-task-implement`, `next-task-code`, `next-task-plan`, `text-to-task`, the implementer agents); `next-task-finish` runs the checker and requires a clean result before committing; `next-task-review` flags missing, stale and over-limit entries.
+- Code map checker, installed as `.claude/scripts/code-map-check.mjs` for the folder layout only (Node built-ins, run with `node`; a switch back to the single-file layout removes it on `update`). Rules: description at most `codeMap.maxDescription` characters, no bead IDs, every listed path exists (exact case, normalized repo-relative paths, `{A,B}` braces and `*` `?` `**` globs, no symlink escaping the repository), every map file linked from `index.md`, no path listed twice, no malformed bullets. Exit code 0 ok, 1 violations (`file:line: message`), 2 usage error.
+- Optional `tracker.idPrefix` (e.g. `"shipr"`) names the bead ID prefix for the checker's no-bead-ID rule. Without it the checker derives the prefix at run time from `.beads/config.yaml` (`issue-prefix`) or the first ID in `.beads/issues.jsonl`, and skips the rule when neither exists.
+
+### Changed
+
+- Compatibility: in 0.1.2 any string was a single-file `codeMap.path`; now only a path ending in `.md` is the file layout, so an extension-less path such as `"docs/CODE_MAP"` is read as a folder and `update` stops with a clear error until you add the `.md` suffix (or create the folder with an `index.md`).
+- `examples/shipir.wavework.json` uses the folder layout (`"docs/code-map"`). A config with a single-file `codeMap.path` (ending in `.md`) renders byte for byte as in 0.1.2; `test/fixtures/shipir-file-layout.wavework.json` keeps that case under the golden tests.
+
 ## [0.1.2] - 2026-11-13
 
 ### Fixed
@@ -40,7 +53,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Pipeline dashboard: `init`/`update` install the recorder, hooks, server and UI into `.claude/wavework/dashboard/` (committed, works in worktrees without `node_modules`) and register its `SessionStart`/`SubagentStop` hooks while `dashboard.enabled`; `dashboard.port` and `dashboard.tokensFile` in the config; `wavework dashboard` starts the server; the skills' `Record:` lines follow the config; neutral default theme; disabling removes its hooks and unedited runtime files on `update` (`docs/dashboard.md`).
 - README: install, daily use, configuration, upgrading, dashboard and a sourced comparison with Sous Factory. `scripts/smoke.sh` runs the README commands against the packed package in CI (`smoke` job), and `test/readme.test.mjs` fails when a README command has no smoke step or test.
 
-[Unreleased]: https://github.com/csSTK/wavework/compare/v0.1.2...HEAD
+[Unreleased]: https://github.com/csSTK/wavework/compare/v0.2.0...HEAD
+[0.2.0]: https://github.com/csSTK/wavework/releases/tag/v0.2.0
 [0.1.2]: https://github.com/csSTK/wavework/releases/tag/v0.1.2
 [0.1.1]: https://github.com/csSTK/wavework/releases/tag/v0.1.1
 [0.1.0]: https://github.com/csSTK/wavework/releases/tag/v0.1.0
