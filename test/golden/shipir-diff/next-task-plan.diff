@@ -1,0 +1,6 @@
+@@ -17 +17 @@
++   - no unresolved open decision
+-   - no unresolved open decision from HANDOFF.md
+@@ -29 +29 @@
++- Children in the same wave run in parallel only if their file sets don't overlap. Shared files count as overlapping: build and dependency manifests (lockfiles included), shared configuration, `CLAUDE.md`, `README.md`. If two overlap, move one into the next wave.
+-- Children in the same wave run in parallel only if their file sets don't overlap. Shared files count as overlapping: `pom.xml`, `package.json`, `application.yml`, `CLAUDE.md`, `README.md`. If two overlap, move one into the next wave.

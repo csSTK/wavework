@@ -1,0 +1,11 @@
+@@ -12 +12 @@
++**By invoking this skill the user authorizes** for this epic: creating and deleting its branch and worktree, committing, pushing the branch to `dev` (fast-forward only) and filing `finding` beads (under the standing findings epics, see `next-task-findings`). Nothing else: never force-push, never rewrite pushed history, never add attribution lines (see CLAUDE.md).
+-**By invoking this skill the user authorizes** for this epic: creating and deleting its branch and worktree, committing, pushing the branch to `dev` (fast-forward only) and filing `finding` beads (under the "Findings: <category>" epics, see `next-task-findings`). Nothing else: never force-push, never rewrite pushed history, never add attribution lines (see CLAUDE.md).
+@@ -34 +34 @@
++   4. run the focused checks of its area (`next-task-test`)
+-   4. run focused backend and frontend tests (`next-task-test`)
+@@ -40 +40 @@
++   - **Red-green check:** after re-running `next-task-test` and before the review, run `.claude/scripts/red-green-check.sh <WT>` (it runs the child's new/changed tests against the pre-change code in a throwaway worktree; tests that need external services need them running). Exit 0 = ok, 1 = some test is `GREEN-ON-OLD`, 2 = tool/setup error (fix the cause and rerun; never treat as a pass). Pass its output to the reviewer. Skip only for a stated exception (pure refactor/docs/config), where it prints "no tests changed" anyway
++   - check the diff against the acceptance criteria and the CLAUDE.md rules (architecture, security, and `apple-design` for UI under `frontend/`)
+-   - **Red-green check:** after re-running `next-task-test` and before the review, run `.claude/scripts/red-green-check.sh <WT>` (it runs the child's new/changed backend and frontend tests against the pre-change code in a throwaway worktree; needs Docker for backend tests). Exit 0 = ok, 1 = some test is `GREEN-ON-OLD`, 2 = tool/setup error (fix the cause and rerun; never treat as a pass). Pass its output to the reviewer. Skip only for a stated exception (pure refactor/docs/config), where it prints "no tests changed" anyway
+-   - check the diff against the acceptance criteria and the CLAUDE.md rules (architecture, security, and `apple-design` for frontend UI)

@@ -1,0 +1,19 @@
+@@ -3 +3 @@
++description: Writes problems found outside the scope of the current task into the shared backlog as beads labelled `finding`, deduplicated and grouped under a few standing findings epics so each epic can be run with /next-task. Used by the /next-task orchestrators after each child and before finishing; also usable on its own.
+-description: Writes problems found outside the scope of the current task into the shared backlog as beads labelled `finding`, deduplicated and grouped under a few standing "Findings: <category>" epics so each epic can be run with /next-task. Used by the /next-task orchestrators after each child and before finishing; also usable on its own.
+@@ -8 +8 @@
++The shared backlog for findings is **beads with the label `finding`** (synced via Dolt, so every session and machine sees them). Not a markdown file: findings are tracked in beads like all other work.
+-The shared backlog for findings is **beads with the label `finding`** (synced via Dolt, so every session and machine sees them). Not a markdown file: CLAUDE.md requires beads for all tracking. `BACKLOG.md` stays the list of Portainer features.
+@@ -27 +27 @@
++| Class | Category epic title | Slug | Typical content |
+-| Class | Category | Slug | Typical content |
+@@ -44 +44 @@
++   bd create --type=epic --priority=<2 for Real categories, 3 for Quality> \
++     --title="<epic title from the table>" --labels fcat:<slug> \
+-   bd create --type=epic --priority=<2 for security/bugs, 3 for tests/quality> \
+-     --title="Findings: <Category name>" --labels fcat:<slug> \
+@@ -61 +61 @@
++   - `model:` by the Model Policy in CLAUDE.md. When unsure, `sonnet`:
++     - `haiku`: Small, well-specified, low-risk changes: boilerplate, renames, simple DTOs or entities, config tweaks, docs, straightforward tests. Never for auth, permissions, remote host access or the audit log.
++     - `sonnet`: Everything else: multi-file features, non-trivial logic, debugging, refactors, concurrency and streaming, and anything touching auth, permissions, remote host access or the audit log. When unsure, use sonnet.
+-   - `model:` by the Model Policy in CLAUDE.md: `haiku` for small, well-specified, low-risk fixes; `sonnet` for everything else and anything touching auth, permissions, remote host access or the audit log. When unsure, `sonnet`.

@@ -1,0 +1,21 @@
+@@ -3 +3 @@
++description: Write failing tests from a beads task's acceptance criteria before implementing (test-first). Follows each area's existing test framework. Used by implementer sub-agents in /next-task; also usable on its own for any bead.
+-description: Write failing tests from a beads task's acceptance criteria before implementing (test-first). Backend JUnit 5 / Testcontainers, frontend Vitest / Testing Library. Used by implementer sub-agents in /next-task; also usable on its own for any bead.
+@@ -10 +10 @@
++The project's test conventions (frameworks, fixtures, mocking boundaries) are in CLAUDE.md; follow them.
++
++**Backend and library code:**
++- Use the area's existing test framework and layout; read neighbouring tests first. One test class or file per unit under test, named after it.
++- Anything touching a database or other external service uses the project's shared test setup. Don't start ad-hoc infrastructure.
++- Mock only at module boundaries. Don't mock the unit under test or the persistence layer.
+-**Backend** (`backend/src/test/java/dev/bethge/shipir/<feature>/`):
+-- JUnit 5. One test class per class under test: `<ClassName>Test`.
+-- Anything touching the database or Docker uses Testcontainers through the shared test baseline. Don't start ad-hoc containers.
+-- Use Mockito only at module boundaries, such as the `docker/` port interfaces. Don't mock the class under test or the JPA layer.
+@@ -19 +21 @@
++**UI code** (test file next to the code):
++- Test behavior as a user sees it: roles, labels, text. Don't test implementation details.
++- Mock the network at the API boundary. Don't mock the data-fetching library.
+-**Frontend** (`frontend/src/...`, test file next to the code as `<name>.test.ts(x)`):
+-- Vitest with Testing Library. Test behavior as a user sees it: roles, labels, text. Don't test implementation details.
+-- Mock the network at the `apiFetch` boundary. Don't mock React Query.

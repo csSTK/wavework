@@ -1,0 +1,3 @@
+@@ -20 +20 @@
++5. **Run focused tests:** `next-task-test`. The checks of your area, plus lint, type checks and e2e where configured. Everything must pass.
+-5. **Run focused tests:** `next-task-test`. Backend and frontend for your area, plus lint, type checks and e2e if present. Everything must pass.
