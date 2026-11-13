@@ -9,7 +9,7 @@ The pipeline works like this:
 - **Red before green.** Tests are written first, and `red-green-check.sh` checks that new tests fail on the old code.
 - **Findings backlog.** Problems found outside a task's scope are filed as beads under a few standing epics, so they can be run later with the same pipeline.
 
-**Status: pre-release.** Version 0.1.0 is not published yet. The commands below describe the CLI as it is on `main`.
+**Status: 0.1.0, first release. Expect changes before 1.0.** The commands below describe the CLI as released.
 
 ## Requirements
 
@@ -128,6 +128,8 @@ Limitations of this comparison:
 ## Development
 
 `npm test` runs the unit tests (`node:test`, no dependencies). `bash scripts/smoke.sh` packs the package and runs the commands from this README against it in two temporary repositories; CI runs it on Node 22 and 24. The dashboard's server, hooks and UI are tested in `test/dashboard/`; `test/dashboard-cli.test.mjs` covers `wavework dashboard`.
+
+Releases are published to npm by `.github/workflows/publish.yml` when a `v*` tag is pushed, using npm trusted publishing (no npm token). The maintainer steps are in [docs/releasing.md](docs/releasing.md).
 
 ## License
 
