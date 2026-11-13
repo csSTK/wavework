@@ -1,5 +1,5 @@
 @@ -3 +3 @@
-+description: "Implements a planned beads task. Scope: Small, well-specified, low-risk changes: boilerplate, renames, simple DTOs or entities, config tweaks, docs, straightforward tests. Never for auth, permissions, remote host access or the audit log. Pass the bead ID."
++description: "Implements a planned beads task. Use it when this rule applies: Small, well-specified, low-risk changes: boilerplate, renames, simple DTOs or entities, config tweaks, docs, straightforward tests. Never for auth, permissions, remote host access or the audit log. Pass the bead ID."
 -description: Implements a small, well-specified, low-risk beads task (boilerplate, simple entities/DTOs, renames, config tweaks, docs, straightforward tests). Never use for auth, permissions, remote host access, or the audit log. Pass the bead ID.
 @@ -7 +7 @@
 +You implement exactly one planned beads task in this codebase. You do not plan or redesign.

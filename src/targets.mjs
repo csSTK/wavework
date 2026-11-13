@@ -51,7 +51,7 @@ const SAFE_MODEL = /^[A-Za-z0-9][A-Za-z0-9._-]*$/;
 /** A JSON string is a valid YAML double-quoted scalar, so rule texts with ": ", quotes or "#" cannot break the frontmatter. */
 function agentDescription(rule) {
   return JSON.stringify(rule
-    ? `Implements a planned beads task. Scope: ${rule} Pass the bead ID.`
+    ? `Implements a planned beads task. Use it when this rule applies: ${rule} Pass the bead ID.`
     : 'Implements a planned beads task. Default implementer for work that no other model rule covers. Pass the bead ID.');
 }
 

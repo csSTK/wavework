@@ -6,7 +6,7 @@ The 16 skills in `templates/skills/<name>/SKILL.md` were ported from Shipir's `.
 
 `test/templates.test.mjs` renders every template with `examples/shipir.wavework.json` (repo name `shipir`, dashboard on by default) and diffs the result against a snapshot of the Shipir original in `test/golden/shipir-source/<skill>.md`. The diff is stored in `test/golden/shipir-diff/<skill>.diff` (empty file = identical). The test fails when the diff changes, so every change in a template or in the context shows up in review. After reviewing an intended change, regenerate with `UPDATE_GOLDEN=1 npm test` and update this file. A skill with a non-empty diff must have a `## <skill>` section below (also tested). Agents and scripts are covered the same way by `test/targets.test.mjs` (snapshots `implementer-sonnet.md`, `implementer-haiku.md`, `red-green-check.sh`, `red-green-check.test.sh`; diffs `<file>.diff`; sections `## implementer-sonnet` etc.).
 
-Identical to Shipir with its config: `next-task-beads`, `next-task-branch`.
+Identical to Shipir with its config: `next-task-beads`, `next-task-branch`. This holds for any directory name of the checkout or worktree that runs `wavework init`/`update`: the repo name comes from the main checkout (`git rev-parse --git-common-dir`), not from the current directory, and `test/repo-root.test.mjs` renders the skill in a worktree with a different name to prove it.
 
 ## Design decisions
 
@@ -18,6 +18,7 @@ Identical to Shipir with its config: `next-task-beads`, `next-task-branch`.
 
 ## Known limitations
 
+- **Git submodules.** In a submodule the git common dir is `<super>/.git/modules/<name>`, so the repo name (here and in the skills' `$(basename "$MAIN")`) comes out as `modules`. Not handled.
 - Dependency update commands are not configurable. `next-task-deps` describes the steps in package-manager-neutral words and takes the verify commands from `checks[].full`. Shipir's `pnpm update` / Maven versions plugin lines are gone.
 - Test-framework conventions (JUnit, Testcontainers, Vitest, Playwright fixtures) are not configurable; the skills say "follow the area's existing framework".
 - `findings.epicTitles` customises titles and adds categories, but class (Real/Quality) and typical content are built in for the four default slugs; other slugs count as Quality.
@@ -53,6 +54,7 @@ Identical to Shipir with its config: `next-task-beads`, `next-task-branch`.
 - Whole skill body depends on `hasE2e` (some area has an `e2e` command); otherwise it only says to report `e2e: n/a (no e2e setup)`. Run commands come from `checks[].e2e`.
 - Description says "browser e2e tests" instead of "Playwright e2e tests".
 - New sentence: the project's e2e conventions (fixtures, API mocking helper, ports) are in CLAUDE.md; follow it.
+- The "Run" section is one list: `Commands per area (full run as listed; for a focused run, append the spec file):` followed by the per-area commands (no separate Focused/Full list, no blank line inside the list).
 
 ## next-task-findings
 
@@ -104,7 +106,7 @@ Identical to Shipir with its config: `next-task-beads`, `next-task-branch`.
 
 ## implementer-sonnet
 
-- Name, `model:` and the `description` come from the config: `Implements a planned beads task. Scope: <models.implementers.rules[model]> Pass the bead ID.` instead of Shipir's hand-written description ("multi-file, non-trivial, or security-sensitive (auth, permissions, remote Docker host access, audit log, log streaming)"). The scope text is the rule text, so Shipir's wording moves into its config.
+- Name, `model:` and the `description` come from the config: `Implements a planned beads task. Use it when this rule applies: <models.implementers.rules[model]> Pass the bead ID.` instead of Shipir's hand-written description ("multi-file, non-trivial, or security-sensitive (auth, permissions, remote Docker host access, audit log, log streaming)"). The text after the colon is the rule text, so Shipir's wording moves into its config.
 - "in the Shipir codebase" became "in this codebase".
 - The `CODE_MAP.md` mentions (grep to find files, update your lines) appear only with `codeMap`.
 

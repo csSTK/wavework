@@ -15,13 +15,10 @@
 +- **No sleeps.** Rely on the framework's auto-waiting and web-first assertions (`await expect(...)`).
 -- **No sleeps.** Rely on Playwright's auto-waiting and web-first assertions (`await expect(...)`).
 @@ -22 +24 @@
-+Commands per area:
-+
-+- `frontend`: `pnpm e2e`
++Commands per area (full run as listed; for a focused run, append the spec file):
 -From `frontend/`:
 -- Focused: `pnpm e2e e2e/<feature>.spec.ts`
 -- Full: `pnpm e2e`
-@@ -26 +28 @@
-+- Focused: the area's e2e command followed by the spec file
-+- Full: the area's e2e command as listed
+@@ -26 +26 @@
++- `frontend`: `pnpm e2e`
 -Every Playwright run takes its own free dev-server port (`frontend/e2e-config/port.ts`), so parallel runs, in one checkout or several, never share a server. `E2E_PORT=<port>` overrides it (`E2E_CSP_PORT` for `pnpm e2e:csp`).

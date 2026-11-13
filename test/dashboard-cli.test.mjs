@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { EventEmitter } from 'node:events';
-import { mkdirSync, writeFileSync } from 'node:fs';
+import { mkdirSync, realpathSync, writeFileSync } from 'node:fs';
+import { execFileSync } from 'node:child_process';
 import { join } from 'node:path';
 import { test } from 'node:test';
 import { CONFIG, cleanup, cli, makeRepo, put, writeConfig } from './helpers/repo.mjs';
@@ -39,8 +40,8 @@ test('dashboard starts the repo\'s installed server with node, in the repo, on t
     assert.equal(r.code, 0, r.stderr);
     assert.equal(f.calls.length, 1);
     assert.equal(f.calls[0].file, process.execPath);
-    assert.deepEqual(f.calls[0].args, [join(repo, '.claude/wavework/dashboard/server.mjs')]);
-    assert.equal(f.calls[0].options.cwd, repo);
+    assert.deepEqual(f.calls[0].args, [join(realpathSync(repo), '.claude/wavework/dashboard/server.mjs')]);
+    assert.equal(f.calls[0].options.cwd, realpathSync(repo));
     assert.equal(f.calls[0].options.env.PIPELINE_DASHBOARD_PORT, '5321');
     assert.equal(f.calls[0].options.stdio, 'inherit');
   } finally { cleanup(repo); }
@@ -111,4 +112,27 @@ test('a symlinked server.mjs is refused (the installed copy must be a regular fi
     assert.equal(r.code, 1);
     assert.equal(f.calls.length, 0);
   } finally { cleanup(repo, elsewhere); }
+});
+
+test('dashboard from a subdirectory and from a linked worktree runs that checkout\'s own server', async () => {
+  const repo = installedRepo();
+  const parent = join(repo, '..', `${repo.split('/').pop()}-wt`);
+  try {
+    mkdirSync(join(repo, 'a/b'), { recursive: true });
+    put(repo, 'a/b/.keep', '');
+    const git = (...a) => execFileSync('git', ['-c', 'user.name=t', '-c', 'user.email=t@example.com', ...a], { cwd: repo, stdio: 'ignore' });
+    git('add', '-A', '-f', '.');
+    git('commit', '-q', '-m', 'x');
+    git('worktree', 'add', '-q', '-b', 'wt', parent);
+    mkdirSync(join(parent, 'a/b'), { recursive: true });
+    const main = realpathSync(repo);
+    const wt = realpathSync(parent);
+    for (const [from, root] of [[join(repo, 'a/b'), main], [parent, wt], [join(parent, 'a/b'), wt]]) {
+      const f = fakeSpawn(0);
+      const r = await cli(['dashboard'], from, { spawn: f.spawn, env: {} });
+      assert.equal(r.code, 0, r.stderr);
+      assert.deepEqual(f.calls[0].args, [join(root, '.claude/wavework/dashboard/server.mjs')]);
+      assert.equal(f.calls[0].options.cwd, root);
+    }
+  } finally { cleanup(repo, parent); }
 });

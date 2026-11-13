@@ -22,12 +22,9 @@ The project's e2e conventions (fixtures, API mocking helper, ports) are in CLAUD
 
 ## Run
 
-Commands per area:
+Commands per area (full run as listed; for a focused run, append the spec file):
 
 {{e2eList}}
-
-- Focused: the area's e2e command followed by the spec file
-- Full: the area's e2e command as listed
 
 Report the spec files added or changed and the pass/fail counts.
 {{else}}

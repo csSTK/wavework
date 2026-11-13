@@ -22,7 +22,7 @@ The pipeline works like this:
 
 ## Install
 
-From the root of a git repository:
+Inside a git repository (any subdirectory or linked worktree works; wavework runs against the enclosing git repository's working tree root and prints it as the first line, `wavework: repository <root> (<name>)`):
 
 ```bash
 npm i -D wavework

@@ -133,3 +133,20 @@ test('dashboard disabled: no skill mentions the recorder or the dashboard', () =
     assert.doesNotMatch(render(template(skill), minimalContext, skill), /record\.mjs|pipeline-dashboard|wavework\/dashboard/, skill);
   }
 });
+
+test('next-task-e2e lists the commands once: no blank line inside the list, no second Focused/Full list', () => {
+  const e2eConfig = validateConfig({
+    baseBranch: 'main',
+    checks: [
+      { name: 'web', dir: 'web', whenPaths: ['web/'], focused: 't', full: 't', e2e: 'pnpm e2e' },
+      { name: 'api', dir: 'api', whenPaths: ['api/'], focused: 't', full: 't', e2e: 'make e2e' },
+    ],
+  });
+  for (const ctx of [shipirContext, buildContext(e2eConfig)]) {
+    const out = render(template('next-task-e2e'), ctx, 'next-task-e2e');
+    const run = out.slice(out.indexOf('## Run'));
+    assert.doesNotMatch(run, /\n\n- [^\n]*\n\n- /, 'list split by a blank line');
+    assert.equal((run.match(/^- \*\*?Focused/gm) ?? []).length, 0, 'second Focused/Full list');
+    assert.equal((run.match(/Commands per area/g) ?? []).length, 1);
+  }
+});

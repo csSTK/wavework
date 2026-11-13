@@ -121,14 +121,14 @@ test('init without config detects baseBranch from origin/HEAD and writes a start
   } finally { cleanup(repo, fx.dir); }
 });
 
-test('init in a directory that is not a git repo root is refused', async () => {
+test('init outside a git repository is refused', async () => {
   const dir = tempDir();
   const fx = defaultFixture();
   try {
     writeConfig(dir);
     const r = await cli(['init'], dir, withFixture(fx));
     assert.equal(r.code, 1);
-    assert.match(r.stderr, /repository root/);
+    assert.match(r.stderr, /not inside a git repository/);
   } finally { cleanup(dir, fx.dir); }
 });
 
@@ -722,10 +722,12 @@ test('a tampered lock listing a .wavework-new path is refused', async () => {
   } finally { s.done(); }
 });
 
-test('a no-op update prints a single line', async () => {
+test('a no-op update prints the repository line and a single result line', async () => {
   const s = await setup();
   try {
     const r = await s.run(['update']);
-    assert.equal(r.stdout.trim().split('\n').length, 1, r.stdout);
+    const lines = r.stdout.trim().split('\n');
+    assert.equal(lines.length, 2, r.stdout);
+    assert.match(lines[0], /^wavework: repository /);
   } finally { s.done(); }
 });

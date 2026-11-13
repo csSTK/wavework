@@ -138,6 +138,15 @@ test('agent files: frontmatter is valid YAML-ish, model and escalation come from
   const desc = out.match(/^description: (.*)$/m)[1];
   assert.equal(typeof JSON.parse(desc), 'string');
   assert.match(JSON.parse(desc), /Small: "easy" things # only\./);
+  assert.doesNotMatch(JSON.parse(desc), /Scope:/);
+});
+
+test('agent descriptions read as sentences: what it does, when to use it, no "Scope:" label', () => {
+  const agents = byBase(renderTargets(shipirConfig));
+  const desc = (f) => JSON.parse(agents[f].content.match(/^description: (.*)$/m)[1]);
+  assert.match(desc('implementer-haiku.md'), /^Implements a planned beads task\. Use it when this rule applies: Small, well-specified/);
+  assert.match(desc('implementer-sonnet.md'), /^Implements a planned beads task\. Use it when this rule applies: Everything else: /);
+  assert.match(desc('implementer-sonnet.md'), / Pass the bead ID\.$/);
 });
 
 test('agent files without a code map or tracker words in a minimal config', () => {

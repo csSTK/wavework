@@ -3,10 +3,12 @@ import { statSync } from 'node:fs';
 import { join } from 'node:path';
 import { loadConfig } from '../config.mjs';
 import { safeResolve } from './safe-path.mjs';
+import { resolveRepo } from './repo.mjs';
 
 /**
  * `wavework dashboard`: runs this repository's installed dashboard server (`.claude/wavework/dashboard/server.mjs`)
- * in the foreground until it is stopped. The server is the repo's own copy, versioned with the lock like every
+ * in the foreground until it is stopped.
+ * Works from a subdirectory or linked worktree: it uses the working tree root's own copy (see resolveRepo). The server is the repo's own copy, versioned with the lock like every
  * other file, so it needs no node_modules and no installed wavework.
  *
  * @param {object} _args
@@ -14,8 +16,9 @@ import { safeResolve } from './safe-path.mjs';
  * @returns {Promise<number>} the server's exit code
  */
 export async function dashboard(_args, ctx) {
-  const claudeDir = join(ctx.cwd, '.claude');
-  const config = loadConfig(ctx.cwd);
+  const { root } = resolveRepo(ctx.cwd, ctx.env);
+  const claudeDir = join(root, '.claude');
+  const config = loadConfig(root);
   if (!config.dashboard.enabled) {
     throw new Error('the dashboard is disabled ("dashboard.enabled": false in .claude/wavework.json); enable it and run `wavework update`');
   }
@@ -26,7 +29,7 @@ export async function dashboard(_args, ctx) {
 
   const env = { ...(ctx.env ?? process.env) };
   env.PIPELINE_DASHBOARD_PORT ??= String(config.dashboard.port);
-  const child = (ctx.spawn ?? nodeSpawn)(process.execPath, [server], { cwd: ctx.cwd, env, stdio: 'inherit' });
+  const child = (ctx.spawn ?? nodeSpawn)(process.execPath, [server], { cwd: root, env, stdio: 'inherit' });
   const forward = (signal) => () => child.kill?.(signal);
   const handlers = ctx.spawn ? [] : ['SIGINT', 'SIGTERM'].map((sig) => [sig, forward(sig)]);
   for (const [sig, fn] of handlers) process.once(sig, fn);
