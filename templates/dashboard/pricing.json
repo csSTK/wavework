@@ -1,0 +1,11 @@
+{
+  "unit": "USD per million tokens",
+  "source": "claude-api skill model table (cached 2026-10-06) and prompt-caching rules: cache read as listed (Haiku 5.5: 0.1x input), 5-minute cache write 1.25x input",
+  "note": "claude-haiku-5-5 uses the rate card for prompts up to 100K tokens. A model missing here gets no cost.",
+  "models": {
+    "claude-opus-5-5": { "input": 4, "output": 20, "cacheRead": 0.2, "cacheWrite": 5 },
+    "claude-sonnet-5-5": { "input": 2, "output": 10, "cacheRead": 0.2, "cacheWrite": 2.5 },
+    "claude-haiku-5-5": { "input": 0.1, "output": 0.5, "cacheRead": 0.01, "cacheWrite": 0.125 },
+    "claude-fable-5-1": { "input": 10, "output": 50, "cacheRead": 0.25, "cacheWrite": 12.5 }
+  }
+}

@@ -1,0 +1,4 @@
+{"type":"user","timestamp":"2026-11-13T10:00:00.000Z","message":{"role":"user","content":"task"}}
+{not json
+{"type":"assistant","timestamp":"2026-11-13T10:00:02.000Z","message":{"id":"msg_1","model":"claude-opus-5-5","role":"assistant","content":[{"type":"text"}],"usage":{"input_tokens":1,"output_tokens":2,"cache_read_input_tokens":3,"cache_creation_input_tokens":4}}}
+

@@ -21,7 +21,7 @@
 | `lockVersion` | Format of this file, currently `1`. An unknown value is an error. |
 | `version` | wavework version that last ran. |
 | `files` | Path relative to `.claude/` (`/`-separated) to the sha256 of the content wavework last wrote, or of the last version you accepted. |
-| `hooks` | The entries wavework added to `.claude/settings.json` (the hook definitions come from `templates/settings/hooks.json`). `event` is the key under `hooks`, `entry` one element of its array. |
+| `hooks` | The entries wavework added to `.claude/settings.json` (the hook definitions come from `templates/settings/hooks.json`; entries under `features.<name>` count only while the config enables that feature, currently `dashboard`). `event` is the key under `hooks`, `entry` one element of its array. |
 
 `wavework.json`, `wavework.lock.json` and `settings.json` are never listed in `files`: wavework does not write the first, writes the other two itself.
 

@@ -19,11 +19,14 @@ const template = (skill) => readFileSync(at('templates', 'skills', skill, 'SKILL
 
 const shipirConfig = validateConfig(JSON.parse(readFileSync(at('examples', 'shipir.wavework.json'), 'utf8')));
 // Golden runs keep Shipir's dashboard Record lines and its repo name so the diff only shows real generalisations.
-const shipirContext = buildContext(shipirConfig, { repoName: 'shipir', dashboard: true });
-const minimalContext = buildContext(validateConfig({
+const shipirContext = buildContext(shipirConfig, { repoName: 'shipir' });
+const minimalRaw = {
   baseBranch: 'main',
   checks: [{ name: 'app', dir: '.', whenPaths: ['src/'], focused: 'npm test', full: 'npm test' }],
-}));
+};
+// The dashboard is on by default; most minimal-config checks want a skill without it.
+const minimalContext = buildContext(validateConfig({ ...minimalRaw, dashboard: { enabled: false } }));
+const dashboardContext = buildContext(validateConfig(minimalRaw));
 const UPDATE = process.env.UPDATE_GOLDEN === '1';
 
 test('every skill has a template and no unknown skill sneaks in', () => {
@@ -111,4 +114,22 @@ test('next-task-test runs the lint command of an area only when one is configure
   const withLint = render(template('next-task-test'), shipirContext, 'next-task-test');
   assert.match(withLint, /also run its \*\*Lint\*\* command/);
   assert.match(withLint, /- \*\*Lint:\*\* `pnpm lint`/);
+});
+
+test('dashboard enabled by default: Record lines call the installed recorder, nothing is left over', () => {
+  const recorderCalls = [];
+  for (const skill of SKILLS) {
+    const out = render(template(skill), dashboardContext, skill);
+    assert.doesNotMatch(out, /\{\{|\}\}|tools\/pipeline-dashboard/, skill);
+    for (const m of out.matchAll(/node (\S*record\.mjs)/g)) recorderCalls.push(m[1]);
+    assert.doesNotMatch(out, /(^|[^`])``([^`]|$)/, `${skill}: empty inline code`);
+  }
+  assert.ok(recorderCalls.length > 0, 'no Record line rendered');
+  assert.deepEqual([...new Set(recorderCalls)], ['.claude/wavework/dashboard/record.mjs']);
+});
+
+test('dashboard disabled: no skill mentions the recorder or the dashboard', () => {
+  for (const skill of SKILLS) {
+    assert.doesNotMatch(render(template(skill), minimalContext, skill), /record\.mjs|pipeline-dashboard|wavework\/dashboard/, skill);
+  }
 });

@@ -16,7 +16,7 @@ Orchestrates one epic from branch to push. You coordinate; the implementer sub-a
 Each step lives in its own skill under `.claude/skills/`. Read that skill's `SKILL.md` and follow it. Stop and report to the user whenever a step says to stop. Don't skip ahead.
 
 {{#if dashboard}}
-**Recording:** `Record:` lines call `node tools/pipeline-dashboard/record.mjs <event> --run <RUN> ...` from `<WT>` (record.mjs only exists on the branch, so never from `MAIN`; record the end of the run before the worktree is removed). `<RUN>` = the branch name with `/` replaced by `.` (e.g. `epic.shipr-1hxo-pipeline-dashboard`). Fire-and-forget: it always exits 0, never wait on or react to it. Fields: `tools/pipeline-dashboard/README.md`.
+**Recording:** `Record:` lines call `node .claude/wavework/dashboard/record.mjs <event> --run <RUN> ...` from `<WT>` (record from `<WT>` while it exists; record the end of the run before the worktree is removed). `<RUN>` = the branch name with `/` replaced by `.` (e.g. `epic.shipr-1hxo-pipeline-dashboard`). Fire-and-forget: it always exits 0, never wait on or react to it. Fields: `.claude/wavework/dashboard/README.md`.
 
 Record: every stop in steps 1–7 (failed bead check or deps, failed plan, failed verification after the retry, review round 3 still failing, blocked child): `run-end --status blocked`.
 

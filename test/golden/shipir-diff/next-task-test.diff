@@ -56,9 +56,12 @@
 +E2E commands run as part of their area. Run the focused e2e spec for the changed feature, and the whole e2e command if shared code or fixtures changed. See `next-task-e2e` for the conventions.
 -## E2E
 @@ -49 +31 @@
++Record: after each run, `node .claude/wavework/dashboard/record.mjs tests --scope <backend|frontend|e2e|full> --passed <n> --failed <n> --duration <seconds>` (no `--run` needed inside the worktree; append `2>/dev/null || true`, it must never fail a standalone run).
 -Only if `frontend/playwright.config.ts` exists. Needs the one-time `pnpm exec playwright install chromium`. From `frontend/`:
 -- Focused: `pnpm e2e e2e/<feature>.spec.ts` for the changed features. Run the full e2e suite if `src/app/`, `src/shared/` or `e2e/fixtures/` changed.
 -- Full: `pnpm e2e`
--
+@@ -53 +33 @@
 -See `next-task-e2e` for the conventions.
+-
+-Record: after each run, `node tools/pipeline-dashboard/record.mjs tests --scope <backend|frontend|e2e|full> --passed <n> --failed <n> --duration <seconds>` (no `--run` needed inside the worktree; append `2>/dev/null || true`, it must never fail a standalone run).
 -

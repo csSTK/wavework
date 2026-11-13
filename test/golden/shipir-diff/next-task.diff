@@ -1,6 +1,9 @@
 @@ -12 +12 @@
 +**By invoking this skill the user authorizes** for this epic: creating and deleting its branch and worktree, committing, pushing the branch to `dev` (fast-forward only) and filing `finding` beads (under the standing findings epics, see `next-task-findings`). Nothing else: never force-push, never rewrite pushed history, never add attribution lines (see CLAUDE.md).
 -**By invoking this skill the user authorizes** for this epic: creating and deleting its branch and worktree, committing, pushing the branch to `dev` (fast-forward only) and filing `finding` beads (under the "Findings: <category>" epics, see `next-task-findings`). Nothing else: never force-push, never rewrite pushed history, never add attribution lines (see CLAUDE.md).
+@@ -18 +18 @@
++**Recording:** `Record:` lines call `node .claude/wavework/dashboard/record.mjs <event> --run <RUN> ...` from `<WT>` (record from `<WT>` while it exists; record the end of the run before the worktree is removed). `<RUN>` = the branch name with `/` replaced by `.` (e.g. `epic.shipr-1hxo-pipeline-dashboard`). Fire-and-forget: it always exits 0, never wait on or react to it. Fields: `.claude/wavework/dashboard/README.md`.
+-**Recording:** `Record:` lines call `node tools/pipeline-dashboard/record.mjs <event> --run <RUN> ...` from `<WT>` (record.mjs only exists on the branch, so never from `MAIN`; record the end of the run before the worktree is removed). `<RUN>` = the branch name with `/` replaced by `.` (e.g. `epic.shipr-1hxo-pipeline-dashboard`). Fire-and-forget: it always exits 0, never wait on or react to it. Fields: `tools/pipeline-dashboard/README.md`.
 @@ -34 +34 @@
 +   4. run the focused checks of its area (`next-task-test`)
 -   4. run focused backend and frontend tests (`next-task-test`)

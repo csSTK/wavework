@@ -1,1 +1,31 @@
-{ "hooks": {} }
+{
+  "hooks": {},
+  "features": {
+    "dashboard": {
+      "hooks": {
+        "SessionStart": [
+          {
+            "hooks": [
+              {
+                "type": "command",
+                "command": "node \"$CLAUDE_PROJECT_DIR/.claude/wavework/dashboard/hooks/session-start.mjs\"",
+                "timeout": 5
+              }
+            ]
+          }
+        ],
+        "SubagentStop": [
+          {
+            "hooks": [
+              {
+                "type": "command",
+                "command": "node \"$CLAUDE_PROJECT_DIR/.claude/wavework/dashboard/hooks/subagent-stop.mjs\"",
+                "timeout": 10
+              }
+            ]
+          }
+        ]
+      }
+    }
+  }
+}

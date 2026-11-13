@@ -83,11 +83,10 @@ function redGreenAreas(checks) {
  * @param {object} config validated config (see validateConfig)
  * @param {object} [options]
  * @param {string} [options.repoName] repository directory name for the worktree path; the skill asks the shell when absent
- * @param {boolean} [options.dashboard] keep the pipeline-dashboard `Record:` lines (the dashboard is not part of the config yet; default off)
  * @returns {object} template variables
  */
 export function buildContext(config, options = {}) {
-  const { repoName, dashboard = false } = options;
+  const { repoName } = options;
   const { worktree, models, checks } = config;
   const rules = models.implementers.rules;
   const labels = Object.keys(rules);
@@ -129,6 +128,6 @@ export function buildContext(config, options = {}) {
     findingsEpicCount: NUMBER_WORDS[count] ?? String(count),
     redGreenAreas: redGreenAreas(checks),
     noAttribution: !config.attribution.allowAiTrailer,
-    dashboard,
+    dashboard: config.dashboard.enabled,
   };
 }

@@ -80,7 +80,7 @@ export async function init(args, ctx) {
   const { config, text } = resolveConfig(args, ctx, ctx.stdout);
   const provider = ctx.targets ?? await defaultTargets();
   const rendered = renderTargets(config, provider, ctx.templatesDir ?? PACKAGE_TEMPLATES, basename(resolve(ctx.cwd)));
-  const result = plan({ claudeDir, rendered, lock: { files: {}, hooks: [] }, defs: loadHookDefs(ctx.hooks) });
+  const result = plan({ claudeDir, rendered, lock: { files: {}, hooks: [] }, defs: loadHookDefs(ctx.hooks, config) });
 
   if (!dryRun) {
     if (text !== null) {

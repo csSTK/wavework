@@ -31,6 +31,9 @@ Minimal valid config:
 | `uiSkill.appliesTo` | array of path prefixes, at least one | required if `uiSkill` is present | |
 | `findings.epicTitles` | map category to epic title | no | four categories, see below |
 | `attribution.allowAiTrailer` | boolean | no | `false` |
+| `dashboard.enabled` | boolean | no | `true` |
+| `dashboard.port` | integer 1024 to 65535 | no | `4690` |
+| `dashboard.tokensFile` | repo-relative path to a `.css` file | no | omitted |
 
 All strings must be non-empty.
 
@@ -91,6 +94,10 @@ Maps a finding category (any key) to the title of its standing epic. Defaults: `
 ### `attribution`
 
 `allowAiTrailer`: `false` (default) means commits and PRs carry no AI attribution trailers. Set `true` to allow them.
+
+### `dashboard`
+
+The pipeline dashboard (see [dashboard.md](dashboard.md)). `enabled: false` leaves out the `Record:` lines in the skills, the runtime in `.claude/wavework/dashboard/` and its two hooks; `update` removes what an earlier run installed. `port`: where the server listens (127.0.0.1 only). `tokensFile`: a CSS file of your design tokens (no leading `/`, no `..` or `.` segments, no backslash, must end in `.css`) that the UI loads after its neutral default theme. Example: `{ "port": 4690, "tokensFile": "frontend/src/shared/styles/tokens.css" }`.
 
 ## API
 

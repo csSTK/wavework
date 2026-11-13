@@ -20,19 +20,38 @@ function canonical(value) {
 
 const same = (a, b) => canonical(a) === canonical(b);
 
-/**
- * @param {unknown} json parsed definition file
- * @returns {{ event: string, entry: object }[]}
- */
-export function parseHookDefs(json) {
-  if (!isObject(json) || !isObject(json.hooks)) throw new Error('hook definitions: expected an object with a "hooks" object');
-  const defs = [];
-  for (const [event, entries] of Object.entries(json.hooks)) {
-    if (!Array.isArray(entries)) throw new Error(`hook definitions: hooks.${event} must be an array`);
+function eventEntries(hooks, where, defs) {
+  if (!isObject(hooks)) throw new Error(`hook definitions: ${where} must be an object`);
+  for (const [event, entries] of Object.entries(hooks)) {
+    if (!Array.isArray(entries)) throw new Error(`hook definitions: ${where}.${event} must be an array`);
     entries.forEach((entry, i) => {
-      if (!isObject(entry)) throw new Error(`hook definitions: hooks.${event}[${i}] must be an object`);
+      if (!isObject(entry)) throw new Error(`hook definitions: ${where}.${event}[${i}] must be an object`);
       defs.push({ event, entry });
     });
+  }
+}
+
+/**
+ * `hooks` always apply. `features.<name>.hooks` apply only when `<name>` is in `enabled` (the CLI passes the
+ * features the config switches on, e.g. "dashboard"); a disabled feature's entries are simply not defined, so
+ * `mergeHooks` removes them again. Every part is validated, enabled or not.
+ *
+ * @param {unknown} json parsed definition file
+ * @param {string[]} [enabled] names of the enabled features
+ * @returns {{ event: string, entry: object }[]}
+ */
+export function parseHookDefs(json, enabled = []) {
+  if (!isObject(json) || !isObject(json.hooks)) throw new Error('hook definitions: expected an object with a "hooks" object');
+  const defs = [];
+  eventEntries(json.hooks, 'hooks', defs);
+  if (json.features !== undefined) {
+    if (!isObject(json.features)) throw new Error('hook definitions: "features" must be an object');
+    for (const [name, feature] of Object.entries(json.features)) {
+      const featureDefs = [];
+      if (!isObject(feature) || !isObject(feature.hooks)) throw new Error(`hook definitions: features.${name} must be an object with a "hooks" object`);
+      eventEntries(feature.hooks, `features.${name}.hooks`, featureDefs);
+      if (enabled.includes(name)) defs.push(...featureDefs);
+    }
   }
   return defs;
 }

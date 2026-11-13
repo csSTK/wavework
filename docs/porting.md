@@ -4,13 +4,13 @@ The 16 skills in `templates/skills/<name>/SKILL.md` were ported from Shipir's `.
 
 ## How parity is checked
 
-`test/templates.test.mjs` renders every template with `examples/shipir.wavework.json` (repo name `shipir`, dashboard on) and diffs the result against a snapshot of the Shipir original in `test/golden/shipir-source/<skill>.md`. The diff is stored in `test/golden/shipir-diff/<skill>.diff` (empty file = identical). The test fails when the diff changes, so every change in a template or in the context shows up in review. After reviewing an intended change, regenerate with `UPDATE_GOLDEN=1 npm test` and update this file. A skill with a non-empty diff must have a `## <skill>` section below (also tested). Agents and scripts are covered the same way by `test/targets.test.mjs` (snapshots `implementer-sonnet.md`, `implementer-haiku.md`, `red-green-check.sh`, `red-green-check.test.sh`; diffs `<file>.diff`; sections `## implementer-sonnet` etc.).
+`test/templates.test.mjs` renders every template with `examples/shipir.wavework.json` (repo name `shipir`, dashboard on by default) and diffs the result against a snapshot of the Shipir original in `test/golden/shipir-source/<skill>.md`. The diff is stored in `test/golden/shipir-diff/<skill>.diff` (empty file = identical). The test fails when the diff changes, so every change in a template or in the context shows up in review. After reviewing an intended change, regenerate with `UPDATE_GOLDEN=1 npm test` and update this file. A skill with a non-empty diff must have a `## <skill>` section below (also tested). Agents and scripts are covered the same way by `test/targets.test.mjs` (snapshots `implementer-sonnet.md`, `implementer-haiku.md`, `red-green-check.sh`, `red-green-check.test.sh`; diffs `<file>.diff`; sections `## implementer-sonnet` etc.).
 
-Identical to Shipir with its config: `next-task-batch`, `next-task-beads`, `next-task-branch`.
+Identical to Shipir with its config: `next-task-beads`, `next-task-branch`.
 
 ## Design decisions
 
-- **Dashboard.** The dashboard is ported later (shipr-p9ge.6) and is not in the config schema. All `Record:` lines (`tools/pipeline-dashboard/record.mjs`) sit behind `{{#if dashboard}}`. `buildContext(config, { dashboard })` defaults to off, so rendered skills contain no `Record:` lines. The golden test turns it on to keep Shipir's lines. When the dashboard lands, a config field or the init command can set the flag; no schema change is needed now.
+- **Dashboard.** Ported in shipr-p9ge.6, see "Pipeline dashboard" below and `docs/dashboard.md`. The `Record:` lines sit behind `{{#if dashboard}}`; the flag is `dashboard.enabled` in the config (default on). `buildContext` has no `dashboard` option any more. The golden test uses the Shipir config, so the only difference left is the recorder path: `node tools/pipeline-dashboard/record.mjs` became `node .claude/wavework/dashboard/record.mjs` (and `tools/pipeline-dashboard/README.md` became `.claude/wavework/dashboard/README.md`), see `next-task`, `next-task-batch` and `next-task-test` below.
 - **Model labels.** `model:haiku|sonnet`, `implementer-haiku|sonnet` and the model rules are derived from the keys of `models.implementers.rules` (default model first for agents). Shipir output is unchanged. The agent files `.claude/agents/implementer-<model>.md` are generated for every rule key plus the default model (see "Agents and file targets").
 - **Worktree and branch.** Derived from the patterns. `{repo}` is `repoName` when the caller passes it (init will), else the skill asks the shell (`$(basename "$MAIN")`). Examples with Shipir bead IDs (`shipr-cxk`, `shipr-yy7`, `shipr-hae`, `shipr-1hxo`) are kept as neutral sample IDs.
 - **Literal braces.** The Shipir skills contain no `{{` or `}}`. The engine has no escape; a stray brace is an error.
@@ -28,7 +28,12 @@ Identical to Shipir with its config: `next-task-batch`, `next-task-beads`, `next
 
 - Findings epics named by "the standing findings epics" instead of the literal `"Findings: <category>"` (titles are configurable).
 - Step 4 and the red-green bullet say "tests/checks of its area" instead of "backend and frontend"; the Docker remark is now "tests that need external services need them running" (Shipir-specific).
+- Recording paragraph: recorder at `.claude/wavework/dashboard/record.mjs`, fields in `.claude/wavework/dashboard/README.md` (was `tools/pipeline-dashboard/`); "record.mjs only exists on the branch, so never from `MAIN`" became "record from `<WT>` while it exists" (the recorder is committed in `.claude/`, so it exists on every checkout).
 - UI skill remark is `{{uiSkill.name}} for UI under <appliesTo>` instead of "`apple-design` for frontend UI"; omitted without `uiSkill`.
+
+## next-task-batch
+
+- The `Record:` line calls the installed recorder, `node .claude/wavework/dashboard/record.mjs` instead of `node tools/pipeline-dashboard/record.mjs`.
 
 ## next-task-code
 
@@ -59,6 +64,7 @@ Identical to Shipir with its config: `next-task-batch`, `next-task-beads`, `next
 
 ## next-task-finish
 
+- Recording sentence: "record.mjs only exists on the branch, so never call it from `MAIN`" became "record from `<WT>` while it exists, never after it is removed".
 - The `HANDOFF.md` documentation bullet is dropped (Shipir planning file).
 
 ## next-task-implement
@@ -76,6 +82,8 @@ Identical to Shipir with its config: `next-task-batch`, `next-task-beads`, `next
 - Generic wording for e2e examples without the Mockito `verify(...)` reference (see diff).
 
 ## next-task-test
+
+- The `Record:` line calls `node .claude/wavework/dashboard/record.mjs` (was `tools/pipeline-dashboard/`).
 
 - Per-area sections generated from `checks` (focused, full, lint, build, e2e) instead of the hand-written backend/frontend sections.
 - Shipir's list of files that force the full suite (`pom.xml`, `application*.yml`, `db/migration/`, `common/`, `src/app/` ...) became one generic sentence.
@@ -115,6 +123,20 @@ Identical to Shipir with its config: `next-task-batch`, `next-task-beads`, `next
 ## watch-ci
 
 - Only the missing-`gh` message: "Run `brew install gh`" became "Install the GitHub CLI (https://cli.github.com)" (no macOS-only package manager). Everything else is identical.
+
+## Pipeline dashboard
+
+`templates/dashboard/` holds Shipir's `tools/pipeline-dashboard/` (recorder, hooks, server, UI, pricing). `wavework init` / `update` copy it **verbatim** (it is JavaScript and CSS, not a template; `verbatim: true` in the target list) to `.claude/wavework/dashboard/`, lock it like every other file and write `config.json` next to it. Differences from Shipir's tool:
+
+- **Location and run time.** The Record lines run from a git worktree, where `node_modules` is usually missing, and the hooks run in the main checkout. So nothing depends on `node_modules` or on an installed wavework: the repo's committed `.claude/wavework/dashboard/` is the runtime (Node >= 22, built-ins only). Commit `.claude/`. `npx wavework dashboard` runs that copy.
+- **Store.** Unchanged: `<git common dir>/pipeline-runs/`, shared by all worktrees. The test override env var is `WAVEWORK_PIPELINE_STORE` (was `SHIPIR_PIPELINE_STORE`).
+- **Port.** `dashboard.port` (default 4690) is written to `config.json`; `PIPELINE_DASHBOARD_PORT` still overrides it (tests use port 0). The SessionStart hook passes the port to the server it starts.
+- **Hooks.** Shipir registered them by hand in `.claude/settings.json` (`SessionStart` beside `bd prime`, `SubagentStop`). wavework registers them from `templates/settings/hooks.json` under `features.dashboard` as its own entries (no matcher), only while `dashboard.enabled`; turning it off removes the entries and the unedited runtime files on `update`.
+- **Stale-server stop.** The SessionStart hook only stops a server whose command line names the recorded `<root>/server.mjs` (Shipir matched any `pipeline-dashboard/server.mjs`), so one repo's hook can never stop another repo's or a developer's own dashboard. The start wait is 2 s (was 600 ms) for slow machines.
+- **Server location.** The SessionStart hook runs `<main checkout>/.claude/wavework/dashboard/server.mjs` when it exists, else its own copy (was `tools/pipeline-dashboard/server.mjs`).
+- **Theme.** Shipir's UI used Shipir's design tokens from `frontend/src/shared/styles/tokens.css`. The UI now loads `/default-theme.css` (neutral, light and dark, defines every token `app.css` uses) and then `/tokens.css`, which is the file named by `dashboard.tokensFile` (repo-relative `.css`, resolved inside the repo, symlinks leaving it refused) or an empty stylesheet. Shipir sets `tokensFile: "frontend/src/shared/styles/tokens.css"` to keep its look.
+- **Project name.** `GET /api/info` returns the repo directory name (main checkout); the UI shows it in the header and the tab title.
+- **Tests.** Shipir's `node:test` suites run in wavework as `test/dashboard/*.test.mjs` directly against `templates/dashboard/` (the files contain no placeholders), plus new tests for settings, tokens, `/api/info` and a fixture repo that is not Shipir (`test/dashboard-install.test.mjs`). The Playwright check is the opt-in script `e2e/dashboard.e2e.mjs` (Playwright is not a dependency of wavework, so it cannot run in `npm test` or CI).
 
 ## red-green-check.sh
 
@@ -160,3 +182,4 @@ Checklist of Shipir text that the templates no longer carry and that must go int
 - [ ] **Model policy as rule texts** (`text-to-task`, `implementer-*`): Shipir's labelling sentence "`model:sonnet` for everything else and **always** for auth, permissions, remote host access, audit, subprocess execution, path handling and streaming" and the agent descriptions "security-sensitive (auth, permissions, remote Docker host access, audit log, log streaming)" / "Never use for auth, permissions, remote host access, or the audit log" are now carried only by `models.implementers.rules` in Shipir's `.claude/wavework.json` (`examples/shipir.wavework.json`). Add "subprocess execution, path handling" to the sonnet rule there, and the haiku escalation sentence "(or touches auth, permissions, remote host access, audit, subprocesses, path handling or streaming)".
 - [ ] **UI example in text-to-task:** "add an acceptance criterion such as "UI follows the apple-design skill: instant press feedback, reduced-motion handled, consistent typography and spacing"" and "(e.g. `motion` for springs)": covered by Shipir's CLAUDE.md Frontend UI section.
 - [ ] **red-green-check.sh:** Shipir's `.claude/scripts/red-green-check.sh` is replaced by the rendered script; Shipir's test discovery (`backend/src/test/**/*Test|*Tests|*IT.java`, `frontend/**/*.test.ts(x)`) is covered by the `maven` and `vitest` kinds because Shipir's `focused` commands contain `mvnw` and `vitest`. Keep those words in the focused commands (or the areas turn `unsupported`). The script no longer needs `python3`.
+- [ ] **Pipeline dashboard (shipr-p9ge.6):** delete Shipir's `tools/pipeline-dashboard/` (its tests, README and e2e script too) and the two dashboard entries in `.claude/settings.json` (`SessionStart` `session-start.mjs` and `SubagentStop` `subagent-stop.mjs`): `wavework init` installs the copy in `.claude/wavework/dashboard/` and registers its own hooks (keep `bd prime` and the other foreign hooks). Put `"dashboard": { "port": 4690, "tokensFile": "frontend/src/shared/styles/tokens.css" }` in `.claude/wavework.json` (already in `examples/shipir.wavework.json`). Update CLAUDE.md's "Pipeline dashboard" paragraph: `npx wavework dashboard`, data in `.git/pipeline-runs/`. Runs already recorded stay readable (same store, same format). `SHIPIR_PIPELINE_STORE` is now `WAVEWORK_PIPELINE_STORE`. Commit `.claude/wavework/` so worktrees have the recorder.

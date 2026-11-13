@@ -64,9 +64,12 @@ test('optional sections are false when absent and objects when present', () => {
   assert.equal(shipir().uiPaths, '`frontend/`');
 });
 
-test('dashboard is off unless the caller opts in; AI trailer follows the config', () => {
-  assert.equal(minimal().dashboard, false);
-  assert.equal(minimal({ dashboard: true }).dashboard, true);
+test('dashboard follows the config (enabled by default); AI trailer follows the config', () => {
+  assert.equal(minimal().dashboard, true);
+  assert.equal(shipir().dashboard, true);
+  const off = buildContext(validateConfig({ ...minimalRaw, dashboard: { enabled: false } }));
+  assert.equal(off.dashboard, false);
+  assert.equal(minimal({ dashboard: false }).dashboard, true, 'the old option is gone; the config is the only switch');
   assert.equal(minimal().noAttribution, true);
   const c = buildContext(validateConfig({ ...minimalRaw, attribution: { allowAiTrailer: true } }));
   assert.equal(c.noAttribution, false);

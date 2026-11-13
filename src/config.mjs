@@ -31,6 +31,7 @@ export const DEFAULTS = Object.freeze({
     }),
   }),
   attribution: Object.freeze({ allowAiTrailer: false }),
+  dashboard: Object.freeze({ enabled: true, port: 4690 }),
 });
 
 const PATH_PLACEHOLDERS = ['repo', 'unit'];
@@ -69,6 +70,12 @@ function strArray(v, path, errs, { minItems = 0, item = str } = {}) {
   }
   if (v.length < minItems) errs.push(`${path}: must contain at least ${minItems} item(s)`);
   return v.map((entry, i) => item(entry, `${path}[${i}]`, errs));
+}
+
+function port(v, path, errs) {
+  if (Number.isInteger(v) && v >= 1024 && v <= 65535) return v;
+  errs.push(`${path}: expected an integer from 1024 to 65535, got ${JSON.stringify(v)}`);
+  return undefined;
 }
 
 /** Path prefix relative to the repo root: no leading slash, no `..` segments, no `.` segments; `.` alone means the whole repo. */
@@ -222,7 +229,24 @@ function attribution(v, path, errs) {
   };
 }
 
-const TOP_LEVEL = ['baseBranch', 'worktree', 'checks', 'models', 'tracker', 'codeMap', 'uiSkill', 'findings', 'attribution'];
+function tokensFile(v, path, errs) {
+  if (relativePrefix(v, path, errs) === undefined) return undefined;
+  if (v.includes('\\')) errs.push(`${path}: must not contain a backslash`);
+  if (!v.endsWith('.css')) errs.push(`${path}: must end in .css`);
+  return v;
+}
+
+function dashboard(v, path, errs) {
+  if (!obj(v, path, errs, ['enabled', 'port', 'tokensFile'])) return undefined;
+  const out = {
+    enabled: field(v, 'enabled', path, errs, bool, { fallback: DEFAULTS.dashboard.enabled }),
+    port: field(v, 'port', path, errs, port, { fallback: DEFAULTS.dashboard.port }),
+  };
+  if ('tokensFile' in v) out.tokensFile = tokensFile(v.tokensFile, join_(path, 'tokensFile'), errs);
+  return out;
+}
+
+const TOP_LEVEL = ['baseBranch', 'worktree', 'checks', 'models', 'tracker', 'codeMap', 'uiSkill', 'findings', 'attribution', 'dashboard'];
 
 /**
  * Validates a parsed wavework config and fills defaults. Pure: does not touch the file system.
@@ -248,6 +272,7 @@ function validate(raw, file) {
     tracker: field(raw, 'tracker', '', errs, tracker, { fallback: DEFAULTS.tracker }),
     findings: field(raw, 'findings', '', errs, findings, { fallback: { epicTitles: DEFAULTS.findings.epicTitles } }),
     attribution: field(raw, 'attribution', '', errs, attribution, { fallback: DEFAULTS.attribution }),
+    dashboard: field(raw, 'dashboard', '', errs, dashboard, { fallback: DEFAULTS.dashboard }),
   };
   for (const [key, check] of [['codeMap', codeMap], ['uiSkill', uiSkill]]) {
     if (key in raw) config[key] = check(raw[key], key, errs);

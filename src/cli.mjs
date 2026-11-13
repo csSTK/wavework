@@ -2,6 +2,7 @@ import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { init } from './cli/init.mjs';
 import { update } from './cli/update.mjs';
+import { dashboard } from './cli/dashboard.mjs';
 import { parseArgs, UsageError } from './cli/args.mjs';
 
 const pkg = JSON.parse(
@@ -13,7 +14,7 @@ export const USAGE = `Usage: wavework <command> [options]
 Commands:
   init        Set up .claude/ in the current repository   [--config <file>] [--dry-run]
   update      Re-render .claude/ from the installed version [--dry-run]
-  dashboard   (not yet implemented)
+  dashboard   Start the pipeline dashboard of this repository (installed by init)
 
 Options:
   -v, --version   Print the version
@@ -23,6 +24,7 @@ Options:
 const COMMANDS = {
   init: { run: init, options: { '--config': 'value', '--dry-run': 'flag' } },
   update: { run: update, options: { '--dry-run': 'flag' } },
+  dashboard: { run: dashboard, options: {} },
 };
 
 /**
@@ -31,7 +33,8 @@ const COMMANDS = {
  * Exit codes: 0 ok, 1 error, 2 done, but locally edited files need review.
  *
  * `io.cwd` (default: process.cwd()) is the repository root. `io.targets`, `io.templatesDir` and `io.hooks`
- * replace the packaged target list, templates directory and hook definitions (tests).
+ * replace the packaged target list, templates directory and hook definitions; `io.env` and `io.spawn` replace the
+ * environment and child_process.spawn of `dashboard` (tests).
  *
  * @param {string[]} argv
  * @param {{ stdout: { write(s: string): unknown }, stderr: { write(s: string): unknown }, cwd?: string, targets?: Function, templatesDir?: string, hooks?: object }} io
@@ -64,6 +67,8 @@ export async function run(argv, io) {
       targets: io.targets,
       templatesDir: io.templatesDir,
       hooks: io.hooks,
+      env: io.env,
+      spawn: io.spawn,
     });
   } catch (e) {
     if (e instanceof UsageError) stderr.write(`wavework ${command}: ${e.message}\n\n${USAGE}`);

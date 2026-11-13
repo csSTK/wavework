@@ -17,7 +17,7 @@ export async function update(args, ctx) {
   const config = loadConfig(ctx.cwd);
   const provider = ctx.targets ?? await defaultTargets();
   const rendered = renderTargets(config, provider, ctx.templatesDir ?? PACKAGE_TEMPLATES, basename(resolve(ctx.cwd)));
-  const result = plan({ claudeDir, rendered, lock, defs: loadHookDefs(ctx.hooks) });
+  const result = plan({ claudeDir, rendered, lock, defs: loadHookDefs(ctx.hooks, config) });
   const dryRun = args['--dry-run'] === true;
   if (!dryRun) apply(claudeDir, result, ctx.version);
   return report(result, ctx.stdout, { dryRun, done: `wavework ${ctx.version}: updated .claude/` });

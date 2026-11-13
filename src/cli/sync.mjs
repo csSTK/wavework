@@ -18,10 +18,13 @@ const LOCK_FORMAT = 1;
 export const sha256 = (data) => createHash('sha256').update(data).digest('hex');
 const isObject = (v) => v !== null && typeof v === 'object' && !Array.isArray(v);
 
-/** Hook definitions: injected object, or templates/settings/hooks.json of the package. */
-export function loadHookDefs(injected) {
+/** Optional features whose hooks (`features.<name>` in hooks.json) the config switches on. */
+export const enabledFeatures = (config) => (config.dashboard?.enabled ? ['dashboard'] : []);
+
+/** Hook definitions: injected object, or templates/settings/hooks.json of the package; feature hooks only when the config enables them. */
+export function loadHookDefs(injected, config) {
   const json = injected ?? JSON.parse(readFileSync(join(PACKAGE_TEMPLATES, 'settings', 'hooks.json'), 'utf8'));
-  return parseHookDefs(json);
+  return parseHookDefs(json, config ? enabledFeatures(config) : []);
 }
 
 /** The default target provider is src/targets.mjs, imported lazily so init/update can be tested without it. */
@@ -49,7 +52,7 @@ function refuseInternalSuffix(rel) {
 /**
  * Renders every target. Does not touch `.claude/`. The provider's `target` is relative to the repo root
  * and must start with `.claude/`; it is stored (lock, reports) relative to `.claude/`. `vars` are merged
- * over buildContext(config) (src/targets.mjs contract).
+ * over buildContext(config) (src/targets.mjs contract); `verbatim: true` skips rendering.
  * @returns {{ target: string, content: string, hash: string, mode: number }[]}
  */
 export function renderTargets(config, provider, templatesDir, repoName) {
@@ -65,7 +68,9 @@ export function renderTargets(config, provider, templatesDir, repoName) {
     seen.add(target.toLowerCase());
     const file = resolve(root, t.template);
     if (!file.startsWith(root + sep)) throw new Error(`unsafe template path ${JSON.stringify(t.template)}`);
-    const content = render(readFileSync(file, 'utf8'), { ...context, ...(t.vars ?? {}) }, t.template);
+    // `verbatim` targets (the dashboard runtime) are copied byte for byte: they are JavaScript and CSS, not templates.
+    const text = readFileSync(file, 'utf8');
+    const content = t.verbatim === true ? text : render(text, { ...context, ...(t.vars ?? {}) }, t.template);
     return { target, content, hash: sha256(content), mode: t.mode ?? 0o644 };
   });
 }

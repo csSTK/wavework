@@ -22,7 +22,7 @@ E2E commands run as part of their area. Run the focused e2e spec for the changed
 
 {{/if}}
 {{#if dashboard}}
-Record: after each run, `node tools/pipeline-dashboard/record.mjs tests --scope <{{areaNamesPipe}}|e2e|full> --passed <n> --failed <n> --duration <seconds>` (no `--run` needed inside the worktree; append `2>/dev/null || true`, it must never fail a standalone run).
+Record: after each run, `node .claude/wavework/dashboard/record.mjs tests --scope <{{areaNamesPipe}}|e2e|full> --passed <n> --failed <n> --duration <seconds>` (no `--run` needed inside the worktree; append `2>/dev/null || true`, it must never fail a standalone run).
 
 {{/if}}
 ## Report

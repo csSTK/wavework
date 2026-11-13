@@ -102,3 +102,25 @@ test('an owned, still defined entry missing from settings is not re-added, stays
   assert.deepEqual(next.owned, start.owned);
   assert.deepEqual(mergeHooks(start.settings, defs, start.owned).lost, []);
 });
+
+test('parseHookDefs: "features" entries only count when the feature is enabled', () => {
+  const json = { hooks: { PreToolUse: [E1] }, features: { dashboard: { hooks: { SessionStart: [E2] } } } };
+  assert.deepEqual(parseHookDefs(json), [{ event: 'PreToolUse', entry: E1 }]);
+  assert.deepEqual(parseHookDefs(json, ['other']), [{ event: 'PreToolUse', entry: E1 }]);
+  assert.deepEqual(parseHookDefs(json, ['dashboard']), [{ event: 'PreToolUse', entry: E1 }, { event: 'SessionStart', entry: E2 }]);
+});
+
+test('parseHookDefs: malformed features are rejected even when disabled', () => {
+  assert.throws(() => parseHookDefs({ hooks: {}, features: [] }), /features/);
+  assert.throws(() => parseHookDefs({ hooks: {}, features: { dashboard: {} } }), /features\.dashboard/);
+  assert.throws(() => parseHookDefs({ hooks: {}, features: { dashboard: { hooks: { X: 5 } } } }), /features\.dashboard\.hooks\.X/);
+});
+
+test('turning a feature off removes exactly its owned entries on the next merge', () => {
+  const json = { hooks: {}, features: { dashboard: { hooks: { SessionStart: [E2] } } } };
+  const on = mergeHooks({ hooks: { SessionStart: [FOREIGN] } }, parseHookDefs(json, ['dashboard']), []);
+  assert.deepEqual(on.settings.hooks.SessionStart, [FOREIGN, E2]);
+  const off = mergeHooks(on.settings, parseHookDefs(json, []), on.owned);
+  assert.deepEqual(off.settings, { hooks: { SessionStart: [FOREIGN] } });
+  assert.deepEqual(off.owned, []);
+});

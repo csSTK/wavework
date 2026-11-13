@@ -244,3 +244,36 @@ test('"." means the whole repo; "./" and "." segments are rejected consistently'
     assert.match(errorOf(minimal({ checks: [area({ whenPaths: [bad] })] })), /whenPaths\[0\]: .*"\."/);
   }
 });
+
+// ---------- dashboard ----------
+
+test('dashboard defaults: enabled, port 4690, no tokensFile', () => {
+  const c = validateConfig(minimal());
+  assert.deepEqual(c.dashboard, { enabled: true, port: 4690 });
+  assert.deepEqual(c.dashboard, DEFAULTS.dashboard);
+  assert.deepEqual(validateConfig(minimal({ dashboard: {} })).dashboard, { enabled: true, port: 4690 });
+});
+
+test('dashboard accepts enabled, port and tokensFile', () => {
+  const c = validateConfig(minimal({ dashboard: { enabled: false, port: 5000, tokensFile: 'frontend/src/tokens.css' } }));
+  assert.deepEqual(c.dashboard, { enabled: false, port: 5000, tokensFile: 'frontend/src/tokens.css' });
+});
+
+test('dashboard rejects unknown keys, wrong types and bad ports', () => {
+  assert.match(errorOf(minimal({ dashboard: { theme: 'x' } })), /dashboard\.theme: unknown key/);
+  assert.match(errorOf(minimal({ dashboard: 'on' })), /dashboard: expected an object, got string/);
+  assert.match(errorOf(minimal({ dashboard: { enabled: 'yes' } })), /dashboard\.enabled: expected a boolean/);
+  for (const bad of [80, 1023, 65536, 4690.5, '4690', null]) {
+    assert.match(errorOf(minimal({ dashboard: { port: bad } })), /dashboard\.port: expected an integer from 1024 to 65535/, String(bad));
+  }
+  for (const ok of [1024, 4690, 65535]) assert.doesNotThrow(() => validateConfig(minimal({ dashboard: { port: ok } })));
+});
+
+test('dashboard.tokensFile must be a repo-relative path to a .css file', () => {
+  assert.match(errorOf(minimal({ dashboard: { tokensFile: '/etc/x.css' } })), /dashboard\.tokensFile: .*relative/);
+  assert.match(errorOf(minimal({ dashboard: { tokensFile: '../x.css' } })), /dashboard\.tokensFile: .*\.\./);
+  assert.match(errorOf(minimal({ dashboard: { tokensFile: 'a/./x.css' } })), /dashboard\.tokensFile: .*"\."/);
+  assert.match(errorOf(minimal({ dashboard: { tokensFile: 'styles/tokens.txt' } })), /dashboard\.tokensFile: must end in \.css/);
+  assert.match(errorOf(minimal({ dashboard: { tokensFile: 'a\\b.css' } })), /dashboard\.tokensFile: .*backslash/);
+  assert.match(errorOf(minimal({ dashboard: { tokensFile: 5 } })), /dashboard\.tokensFile: expected a non-empty string/);
+});

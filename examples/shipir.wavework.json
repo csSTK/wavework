@@ -45,5 +45,10 @@
       "quality": "Findings: Code quality, UI & docs"
     }
   },
-  "attribution": { "allowAiTrailer": false }
+  "attribution": { "allowAiTrailer": false },
+  "dashboard": {
+    "enabled": true,
+    "port": 4690,
+    "tokensFile": "frontend/src/shared/styles/tokens.css"
+  }
 }

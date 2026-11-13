@@ -5,7 +5,7 @@ import { fileURLToPath } from 'node:url';
 import { validateConfig } from '../src/config.mjs';
 import { buildContext } from '../src/context.mjs';
 import { render } from '../src/render.mjs';
-import { templateTargets, renderTargets } from '../src/targets.mjs';
+import { templateTargets, renderTargets, DASHBOARD_DIR } from '../src/targets.mjs';
 import { lineDiff } from './helpers/linediff.mjs';
 
 const at = (...p) => fileURLToPath(new URL(`../${p.join('/')}`, import.meta.url));
@@ -32,7 +32,8 @@ test('templateTargets covers every template file exactly once', () => {
       else if (e.name !== '.gitkeep') onDisk.push(`${dir}/${e.name}`);
     }
   };
-  for (const top of ['skills', 'agents', 'scripts']) walk(top);
+  for (const top of ['skills', 'agents', 'scripts', 'dashboard']) walk(top);
+  onDisk.push('dashboard-config.json');
   // the agent template appears once per implementer model, so compare as sets
   assert.deepEqual([...new Set(listed)], onDisk.sort());
   for (const t of targets) assert.ok(existsSync(at('templates', t.template)), t.template);
@@ -75,6 +76,7 @@ test('renderTargets renders every target without leftovers (minimal config)', ()
   const rendered = renderTargets(minimalConfig);
   assert.equal(rendered.length, templateTargets(minimalConfig).length);
   for (const r of rendered) {
+    if (r.target.startsWith(`${DASHBOARD_DIR}/`) && !r.target.endsWith('/config.json')) continue; // verbatim JavaScript/CSS, braces are fine
     assert.doesNotMatch(r.content, /\{\{|\}\}/, r.target);
     if (!r.target.endsWith('.sh')) assert.doesNotMatch(r.content, /\bundefined\b|\[object Object\]/, r.target); // scripts contain JS
     assert.ok(!r.content.includes('\r'), r.target);
@@ -85,7 +87,7 @@ for (const name of NEW) {
   test(`golden: ${name} rendered with the Shipir config differs from the Shipir original only as recorded`, () => {
     const t = byBase(templateTargets(shipirConfig))[name];
     assert.ok(t, `no target for ${name}`);
-    const ctx = buildContext(shipirConfig, { repoName: 'shipir', dashboard: true });
+    const ctx = buildContext(shipirConfig, { repoName: 'shipir' });
     const rendered = render(readFileSync(at('templates', t.template), 'utf8'), { ...ctx, ...t.vars }, t.template);
     const source = readFileSync(at('test', 'golden', 'shipir-source', name), 'utf8');
     assert.ok(!source.includes('\r'));
@@ -162,4 +164,54 @@ test('red-green-check area table rejects names or dirs it cannot represent', () 
     const cfg = validateConfig({ baseBranch: 'main', checks: [{ name, dir: '.', whenPaths: ['src/'], focused: 'x', full: 'x' }] });
     assert.throws(() => buildContext(cfg), /area/, name);
   }
+});
+
+// ---------- dashboard runtime (shipr-p9ge.6) ----------
+
+const withDashboard = (dashboard) => validateConfig({ baseBranch: 'main', checks: minimalConfig.checks, dashboard });
+
+test('dashboard enabled: the runtime is copied verbatim to .claude/wavework/dashboard, config.json is rendered', () => {
+  assert.equal(DASHBOARD_DIR, '.claude/wavework/dashboard');
+  const targets = templateTargets(minimalConfig);
+  const dash = targets.filter((t) => t.target.startsWith(`${DASHBOARD_DIR}/`));
+  const names = dash.map((t) => t.target.slice(DASHBOARD_DIR.length + 1)).sort();
+  for (const expected of ['record.mjs', 'server.mjs', 'pricing.json', 'config.json', 'hooks/session-start.mjs', 'hooks/subagent-stop.mjs',
+    'lib/ci.mjs', 'lib/derive.mjs', 'lib/settings.mjs', 'lib/tokens.mjs', 'public/index.html', 'public/app.js', 'public/app.css', 'public/default-theme.css', 'public/format.mjs']) {
+    assert.ok(names.includes(expected), `missing ${expected}`);
+  }
+  for (const t of dash) {
+    assert.equal(t.mode, 0o644, t.target);
+    assert.equal(t.verbatim === true, t.target !== `${DASHBOARD_DIR}/config.json`, `${t.target}: only config.json is a template`);
+  }
+  assert.equal(dash.find((t) => t.target.endsWith('/config.json')).template, 'dashboard-config.json');
+});
+
+test('dashboard disabled: no dashboard target at all', () => {
+  const targets = templateTargets(withDashboard({ enabled: false }));
+  assert.deepEqual(targets.filter((t) => t.target.includes('wavework/')), []);
+});
+
+test('renderTargets: verbatim files are byte-identical to the template, even with braces', () => {
+  const rendered = renderTargets(minimalConfig);
+  for (const name of ['record.mjs', 'server.mjs', 'public/app.js', 'hooks/session-start.mjs']) {
+    const r = rendered.find((x) => x.target === `${DASHBOARD_DIR}/${name}`);
+    assert.equal(r.content, readFileSync(at('templates', 'dashboard', name), 'utf8'), name);
+  }
+});
+
+test('renderTargets: config.json carries port and tokensFile as JSON (escaped), nothing else', () => {
+  const read = (cfg) => JSON.parse(renderTargets(cfg).find((x) => x.target === `${DASHBOARD_DIR}/config.json`).content);
+  assert.deepEqual(read(minimalConfig), { port: 4690, tokensFile: null });
+  assert.deepEqual(read(withDashboard({ port: 5555, tokensFile: 'ui/"tokens".css' })), { port: 5555, tokensFile: 'ui/"tokens".css' });
+});
+
+test('dashboard targets stay unique and inside .claude/', () => {
+  const targets = templateTargets(shipirConfig).map((t) => t.target);
+  assert.equal(new Set(targets.map((t) => t.toLowerCase())).size, targets.length);
+  assert.ok(targets.every((t) => t.startsWith('.claude/') && !t.includes('..')));
+});
+
+test('skill templates and targets agree on where the recorder lives', () => {
+  const next = readFileSync(at('templates', 'skills', 'next-task-test', 'SKILL.md'), 'utf8');
+  assert.ok(next.includes(`node ${DASHBOARD_DIR}/record.mjs`));
 });
