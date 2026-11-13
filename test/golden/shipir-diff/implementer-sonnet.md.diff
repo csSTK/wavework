@@ -1,0 +1,6 @@
+@@ -3 +3 @@
++description: "Implements a planned beads task. Scope: Everything else: multi-file features, non-trivial logic, debugging, refactors, concurrency and streaming, and anything touching auth, permissions, remote host access or the audit log. When unsure, use sonnet. Pass the bead ID."
+-description: Implements a planned beads task that is multi-file, non-trivial, or security-sensitive (auth, permissions, remote Docker host access, audit log, log streaming). Use for any implementation work not clearly small and low-risk. Pass the bead ID.
+@@ -7 +7 @@
++You implement exactly one planned beads task in this codebase. You do not plan or redesign.
+-You implement exactly one planned beads task in the Shipir codebase. You do not plan or redesign.

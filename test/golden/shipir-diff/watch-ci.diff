@@ -1,0 +1,3 @@
+@@ -14 +14 @@
++- `command -v gh`. If missing, stop: "gh is not installed. Install the GitHub CLI (https://cli.github.com), then `! gh auth login`."
+-- `command -v gh`. If missing, stop: "gh is not installed. Run `brew install gh`, then `! gh auth login`."

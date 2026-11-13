@@ -1,0 +1,39 @@
+@@ -8 +8 @@
++Turn the user's text into an epic with implementable child tasks in beads (`bd`). This is planning work: per the Model Policy in CLAUDE.md it belongs on the `opus` model. If the session isn't on `opus`, say so and suggest `/model opus` before continuing. Never implement anything here.
+-Turn the user's text into an epic with implementable child tasks in beads (`bd`). This is planning work: per the Model Policy in CLAUDE.md it belongs on Opus. If the session isn't on Opus, say so and suggest `/model opus` before continuing. Never implement anything here.
+@@ -14 +14 @@
++- Read CLAUDE.md: the working rules, model policy, architecture and security sections. Grep `docs/CODE_MAP.md` to find affected files; only open code if the map isn't enough.
++- Read the project's list of open decisions, if it has one (CLAUDE.md says where).
+-- Read CLAUDE.md: Working Rules, Model Policy, Architecture, Security, Database & Flyway. Grep `docs/CODE_MAP.md` to find affected files; only open code if the map isn't enough.
+-- Read the open decisions in HANDOFF.md.
+@@ -22 +22 @@
++1. **Goal:** what observable outcome is wanted, and for whom (which kind of user or role)?
+-1. **Goal:** what observable outcome is wanted, and for whom (role: ADMIN/OPERATOR/VIEWER)?
+@@ -24 +24 @@
++3. **Placement:** which area of the codebase (backend|frontend) and which modules inside it?
+-3. **Placement:** which feature module(s) (`docker/`, `host/`, `compose/`, …) and which layer (backend, frontend, both)?
+@@ -26 +26 @@
++5. **Decisions:** does it depend on an open decision or on something CLAUDE.md doesn't settle? Open decisions are never guessed.
+-5. **Decisions:** does it depend on an open decision from HANDOFF.md or something CLAUDE.md doesn't settle (e.g. JWT vs. session, data model choices)? Open decisions are never guessed.
+@@ -31 +31 @@
++- Ask the user with AskUserQuestion: at most 4 specific questions, each with concrete options and your recommendation first. Never ask what CLAUDE.md or the code already answers.
+-- Ask the user with AskUserQuestion: at most 4 specific questions, each with concrete options and your recommendation first. Never ask what CLAUDE.md, HANDOFF.md or the code already answers.
+@@ -42 +42 @@
++- Be completable by one implementer agent in one session: one coherent change, typically one module and layer. Split work in different areas into separate children.
++- Include its own tests in the acceptance criteria. No separate "write tests" tasks.
++- Name the files or packages to touch, taken from the code map (for new files: the intended path).
+-- Be completable by one implementer agent in one session: one coherent change, typically one module and layer. Split backend and frontend into separate children.
+-- Include its own tests (unit and/or Testcontainers integration) in the acceptance criteria. No separate "write tests" tasks.
+-- Name the files or packages to touch, taken from the Code Map or the architecture tree (for new files: the intended path).
+@@ -46 +46 @@
++- Carry a model label per the model policy (`model:haiku` or `model:sonnet`):
++  - `haiku`: Small, well-specified, low-risk changes: boilerplate, renames, simple DTOs or entities, config tweaks, docs, straightforward tests. Never for auth, permissions, remote host access or the audit log.
++  - `sonnet`: Everything else: multi-file features, non-trivial logic, debugging, refactors, concurrency and streaming, and anything touching auth, permissions, remote host access or the audit log. When unsure, use sonnet.
++- For UI children (files under `frontend/`): name `apple-design` in the description and add an acceptance criterion that the UI follows the apple-design skill. If the work needs a new library, say so explicitly in the child.
++- Respect the build order and the architecture rules in CLAUDE.md (for example a schema migration is its own child, ahead of the code that needs it).
+-- Carry a model label per the Model Policy: `model:haiku` for small, well-specified, low-risk changes; `model:sonnet` for everything else and **always** for auth, permissions, remote host access, audit, subprocess execution, path handling and streaming.
+-- For frontend UI children: name `apple-design` in the description and add an acceptance criterion such as "UI follows the apple-design skill: instant press feedback, reduced-motion handled, consistent typography and spacing". If the work needs a new library (e.g. `motion` for springs), say so explicitly in the child.
+-- Respect the build order in HANDOFF.md and the architecture rules (e.g. a Flyway migration is its own child, ahead of the entity/repository that needs it).
+@@ -71 +73 @@
++Titles: imperative and specific ("Add a migration that creates the hosts table", not "Hosts DB stuff").
+-Titles: imperative and specific ("Add Flyway migration V2__create_docker_hosts", not "Hosts DB stuff").

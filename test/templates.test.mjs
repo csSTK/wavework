@@ -13,6 +13,7 @@ const SKILLS = [
   'next-task', 'next-task-batch', 'next-task-beads', 'next-task-branch', 'next-task-code',
   'next-task-deps', 'next-task-e2e', 'next-task-findings', 'next-task-finish', 'next-task-implement',
   'next-task-plan', 'next-task-review', 'next-task-test', 'next-task-write-tests',
+  'text-to-task', 'watch-ci',
 ];
 const template = (skill) => readFileSync(at('templates', 'skills', skill, 'SKILL.md'), 'utf8');
 

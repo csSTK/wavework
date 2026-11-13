@@ -47,6 +47,39 @@ function findingsRows(epicTitles) {
 }
 
 /**
+ * Implementer models in agent order: the default first, then the other rule keys. The default is included
+ * even without a rule of its own (rule is then null).
+ *
+ * @param {object} config validated config
+ * @returns {{model: string, rule: string|null, isDefault: boolean}[]}
+ */
+export function implementerAgents(config) {
+  const { default: fallback, rules } = config.models.implementers;
+  return [fallback, ...Object.keys(rules).filter((m) => m !== fallback)].map((model) => ({
+    model,
+    rule: Object.hasOwn(rules, model) ? rules[model] : null,
+    isDefault: model === fallback,
+  }));
+}
+
+const AREA_KINDS = [['maven', /\bmvnw?\b/], ['vitest', /\bvitest\b/]];
+
+/**
+ * One line per check area for the `AREAS` table of scripts/red-green-check.sh: `'name|kind|dir'`. The kind
+ * (maven, vitest) is guessed from the area's focused command; anything else is `unsupported` and the script
+ * prints `SKIP <name>: unsupported` for it.
+ */
+function redGreenAreas(checks) {
+  return checks.map((a) => {
+    for (const field of [a.name, a.dir]) {
+      if (/[|'\n]/.test(field)) throw new Error(`area "${a.name}": name and dir must not contain "|", "'" or newlines (red-green-check.sh area table)`);
+    }
+    const kind = AREA_KINDS.find(([, re]) => re.test(a.focused))?.[0] ?? 'unsupported';
+    return `'${a.name}|${kind}|${a.dir.replace(/\/+$/, '') || '.'}'`;
+  }).join('\n');
+}
+
+/**
  * @param {object} config validated config (see validateConfig)
  * @param {object} [options]
  * @param {string} [options.repoName] repository directory name for the worktree path; the skill asks the shell when absent
@@ -59,7 +92,7 @@ export function buildContext(config, options = {}) {
   const rules = models.implementers.rules;
   const labels = Object.keys(rules);
   if (!labels.includes(models.implementers.default)) labels.push(models.implementers.default);
-  const agents = [models.implementers.default, ...labels.filter((l) => l !== models.implementers.default)];
+  const agents = implementerAgents(config).map((a) => a.model);
   const branch = (values) => fill(worktree.branchPattern, values);
   const withE2e = checks.filter((a) => a.e2e);
   const titles = config.findings.epicTitles;
@@ -94,6 +127,7 @@ export function buildContext(config, options = {}) {
     uiPaths: config.uiSkill ? config.uiSkill.appliesTo.map(code).join(', ') : '',
     findingsEpics: findingsRows(titles),
     findingsEpicCount: NUMBER_WORDS[count] ?? String(count),
+    redGreenAreas: redGreenAreas(checks),
     noAttribution: !config.attribution.allowAiTrailer,
     dashboard,
   };
