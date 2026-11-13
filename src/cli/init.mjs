@@ -32,7 +32,7 @@ function starterConfig(cwd, baseBranch) {
 }
 
 /** Resolves where the config comes from; returns it plus the text to write (null when it already exists). */
-function resolveConfig(args, ctx, out) {
+function resolveConfig(args, ctx, out, adopt) {
   const existing = existsSync(join(ctx.cwd, CONFIG_PATH));
   const from = args['--config'];
   if (existing) {
@@ -54,6 +54,13 @@ function resolveConfig(args, ctx, out) {
     }
     return { config: validateConfig(raw), text: text.endsWith('\n') ? text : `${text}\n` };
   }
+  if (adopt) {
+    throw new Error(
+      `--adopt requires --config <file> when ${CONFIG_PATH} does not exist: adopting existing hand-written files only makes sense `
+      + 'against a config that describes your repository (checks, models); a starter config would be a guess, and every file '
+      + `rendered from it would differ. Create ${CONFIG_PATH} (see docs/config.md) or pass --config <file>.`,
+    );
+  }
   const baseBranch = detectBaseBranch(ctx.cwd);
   if (!baseBranch) {
     throw new Error(
@@ -67,7 +74,8 @@ function resolveConfig(args, ctx, out) {
 }
 
 /**
- * `wavework init [--config <file>] [--dry-run]`: first-time setup of `.claude/` in the repo at `ctx.cwd`.
+ * `wavework init [--config <file>] [--adopt] [--dry-run]`: first-time setup of `.claude/` in the repo at `ctx.cwd`.
+ * With `--adopt`, existing files are kept: identical ones are locked, differing ones get a `.wavework-new` next to them.
  *
  * @returns {Promise<number>} exit code
  */
@@ -77,10 +85,11 @@ export async function init(args, ctx) {
   if (readLock(claudeDir)) throw new Error('.claude/wavework.lock.json exists: wavework is already set up here; run `wavework update`');
 
   const dryRun = args['--dry-run'] === true;
-  const { config, text } = resolveConfig(args, ctx, ctx.stdout);
+  const adopt = args['--adopt'] === true;
+  const { config, text } = resolveConfig(args, ctx, ctx.stdout, adopt);
   const provider = ctx.targets ?? await defaultTargets();
   const rendered = renderTargets(config, provider, ctx.templatesDir ?? PACKAGE_TEMPLATES, basename(resolve(ctx.cwd)));
-  const result = plan({ claudeDir, rendered, lock: { files: {}, hooks: [] }, defs: loadHookDefs(ctx.hooks, config) });
+  const result = plan({ claudeDir, rendered, lock: { files: {}, hooks: [] }, defs: loadHookDefs(ctx.hooks, config), adopt });
 
   if (!dryRun) {
     if (text !== null) {
@@ -91,5 +100,5 @@ export async function init(args, ctx) {
   } else if (text !== null) {
     result.actions.unshift({ kind: 'create', target: 'wavework.json' });
   }
-  return report(result, ctx.stdout, { dryRun, done: `wavework ${ctx.version}: initialized .claude/` });
+  return report(result, ctx.stdout, { dryRun, adopt, done: `wavework ${ctx.version}: ${adopt ? 'adopted' : 'initialized'} .claude/` });
 }

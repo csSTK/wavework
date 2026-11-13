@@ -12,7 +12,7 @@ const pkg = JSON.parse(
 export const USAGE = `Usage: wavework <command> [options]
 
 Commands:
-  init        Set up .claude/ in the current repository   [--config <file>] [--dry-run]
+  init        Set up .claude/ in the current repository   [--config <file>] [--adopt] [--dry-run]
   update      Re-render .claude/ from the installed version [--dry-run]
   dashboard   Start the pipeline dashboard of this repository (installed by init)
 
@@ -22,7 +22,7 @@ Options:
 `;
 
 const COMMANDS = {
-  init: { run: init, options: { '--config': 'value', '--dry-run': 'flag' } },
+  init: { run: init, options: { '--config': 'value', '--adopt': 'flag', '--dry-run': 'flag' } },
   update: { run: update, options: { '--dry-run': 'flag' } },
   dashboard: { run: dashboard, options: {} },
 };

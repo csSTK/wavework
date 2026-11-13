@@ -38,6 +38,8 @@ export const COVERAGE = {
   'npx wavework --version': { smoke: 'npx wavework --version' },
   'npx wavework init': { smoke: 'npx wavework init' },
   'npx wavework init --config <file>': { smoke: 'npx wavework init --config <file>' },
+  'npx wavework init --adopt --dry-run --config <file>': { smoke: 'npx wavework init --adopt --dry-run' },
+  'npx wavework init --adopt --config <file>': { smoke: 'npx wavework init --adopt' },
   'npx wavework update --dry-run': { smoke: 'npx wavework update --dry-run' },
   'npx wavework update': { smoke: 'npx wavework update' },
   'npx wavework dashboard': { test: 'test/dashboard-cli.test.mjs' },

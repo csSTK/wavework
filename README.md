@@ -36,6 +36,15 @@ Without `--config`, `init` writes a starter config: `baseBranch` comes from `ori
 npx wavework init --config <file>
 ```
 
+To adopt a repository that already has hand-written pipeline files (it never overwrites them):
+
+```bash
+npx wavework init --adopt --dry-run --config <file>
+npx wavework init --adopt --config <file>
+```
+
+For each file `init` would write that already exists: identical content is kept and locked; different content is kept untouched and the rendered version is written to `<file>.wavework-new`, listed with a short `+N -M` line summary (diff it yourself: `diff <file> <file>.wavework-new`; a file with CRLF line endings against the LF rendered version shows every line as changed); missing files are created. `--dry-run` prints this plan and writes nothing. Exit code 0 when everything matched or was created, 2 when files differ. `--adopt` needs `.claude/wavework.json` or `--config <file>` (a starter config would be a guess, so every rendered file would differ) and refuses when a lock exists. Afterwards `npx wavework update` keeps reporting the differing files until you merge them and delete the `.wavework-new` files, or make the file equal to the rendered one. See [docs/lock.md](docs/lock.md).
+
 `init` writes:
 
 - `.claude/skills/`: the 16 skills (`next-task`, `next-task-*`, `text-to-task`, `watch-ci`)

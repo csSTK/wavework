@@ -8,6 +8,7 @@ import { buildContext } from '../context.mjs';
 import { render } from '../render.mjs';
 import { safeResolve } from './safe-path.mjs';
 import { mergeHooks, parseHookDefs } from './hooks.mjs';
+import { lineDiffStat } from './diff-stat.mjs';
 
 export const LOCK_PATH = 'wavework.lock.json';
 export const SETTINGS_PATH = 'settings.json';
@@ -129,6 +130,16 @@ function diskHash(abs, rel) {
   return sha256(readFileSync(abs));
 }
 
+const exists = (abs) => {
+  try {
+    lstatSync(abs);
+    return true;
+  } catch (e) {
+    if (e.code === 'ENOENT') return false;
+    throw e;
+  }
+};
+
 /**
  * Decides what to do for every file and for settings.json. Reads, never writes.
  * Throws on any unsafe path or invalid input, so a failing plan leaves the repo untouched.
@@ -138,9 +149,12 @@ function diskHash(abs, rel) {
  * @param {ReturnType<typeof renderTargets>} p.rendered
  * @param {{ files: Record<string, string>, hooks: object[] }} p.lock `{ files: {}, hooks: [] }` for init
  * @param {{ event: string, entry: object }[]} p.defs
+ * @param {boolean} [p.adopt] `init --adopt`: existing files that differ are kept, their lock entry is the RENDERED hash,
+ *   and the result carries `adoption` (identical / differing with diff stats / created). Nothing else changes.
  */
-export function plan({ claudeDir, rendered, lock, defs }) {
+export function plan({ claudeDir, rendered, lock, defs, adopt = false }) {
   const actions = [];
+  const adoption = { identical: [], differing: [], created: [] };
   const files = {};
   const wanted = new Set(rendered.map((t) => t.target));
 
@@ -151,17 +165,27 @@ export function plan({ claudeDir, rendered, lock, defs }) {
     const write = (kind) => { actions.push({ kind, target: t.target, abs, content: t.content, mode: t.mode }); files[t.target] = t.hash; };
     if (disk === undefined) {
       write(locked === undefined ? 'create' : 'restore');
+      adoption.created.push(t.target);
     } else if (disk === t.hash) {
       files[t.target] = t.hash; // already what we would write: adopt
+      adoption.identical.push(t.target);
       if ((lstatSync(abs).mode & 0o111) !== (t.mode & 0o111)) actions.push({ kind: 'mode', target: t.target, abs, mode: t.mode });
     } else if (locked !== undefined && disk === locked) {
       write('update'); // untouched since the last run
     } else {
       // Edited locally (or an unknown file sits there). The old lock hash stays, so it is reported until resolved.
       if (locked !== undefined) files[t.target] = locked;
-      if (locked !== undefined && t.hash === locked) continue; // nothing new upstream, nothing to merge
       const newAbs = safeResolve(claudeDir, `${t.target}${NEW_SUFFIX}`);
-      actions.push({ kind: 'review', target: t.target, newTarget: `${t.target}${NEW_SUFFIX}`, newAbs, content: t.content });
+      const review = { kind: 'review', target: t.target, newTarget: `${t.target}${NEW_SUFFIX}`, newAbs, content: t.content };
+      if (adopt) {
+        // Adopted: the lock records the rendered hash, so `update` reports the file for as long as its .wavework-new exists.
+        files[t.target] = t.hash;
+        review.stat = lineDiffStat(readFileSync(abs, 'utf8'), t.content);
+        adoption.differing.push({ target: t.target, ...review.stat });
+      } else if (locked !== undefined && t.hash === locked && !exists(newAbs)) {
+        continue; // nothing new upstream, nothing to merge (a still existing .wavework-new means it is not resolved yet)
+      }
+      actions.push(review);
     }
   }
 
@@ -198,7 +222,7 @@ export function plan({ claudeDir, rendered, lock, defs }) {
   const changed = JSON.stringify(merged.settings) !== JSON.stringify(current) || (!existed && Object.keys(merged.settings).length > 0);
   if (changed) actions.push({ kind: 'settings', abs: settingsAbs, content: `${JSON.stringify(merged.settings, null, 2)}\n` });
 
-  return { actions, notes, files, hooks: merged.owned, review: actions.filter((a) => a.kind.startsWith('review')).length };
+  return { actions, notes, files, adoption, hooks: merged.owned, review: actions.filter((a) => a.kind.startsWith('review')).length };
 }
 
 /** Writes via a temp file and rename, so a symlink that appeared meanwhile is replaced, never written through. */
@@ -248,13 +272,17 @@ const LABEL = {
 };
 
 /** Prints one short line per change; returns the exit code (2 when files need review). */
-export function report(result, stdout, { dryRun, done }) {
+export function report(result, stdout, { dryRun, done, adopt = false }) {
   const prefix = dryRun ? 'dry-run: ' : '';
   const counts = {};
   for (const a of result.actions) {
     counts[a.kind] = (counts[a.kind] ?? 0) + 1;
     if (a.kind === 'review') {
-      stdout.write(`${prefix}review  ${a.target}: edited locally, kept; new version in ${a.newTarget}\n`);
+      const st = a.stat;
+      const note = st?.approx ? ', upper bound' : st?.whitespaceOnly ? ', whitespace/newline only' : '';
+      const stat = st ? ` (+${st.added} -${st.removed}${note})` : '';
+      const why = a.stat ? 'differs from the rendered version, kept untouched; rendered version in' : 'edited locally, kept; new version in';
+      stdout.write(`${prefix}review  ${a.target}: ${why} ${a.newTarget}${stat}\n`);
     } else if (a.kind === 'review-removed') {
       stdout.write(`${prefix}review  ${a.target}: removed upstream but edited locally, kept\n`);
     } else {
@@ -262,6 +290,11 @@ export function report(result, stdout, { dryRun, done }) {
     }
   }
   for (const note of result.notes) stdout.write(`${prefix}${note}\n`);
+  if (adopt) {
+    const { identical, differing, created } = result.adoption;
+    stdout.write(`${prefix}adopt: ${identical.length} identical, ${differing.length} differing, ${created.length} new\n`);
+    if (differing.length > 0) stdout.write(`${prefix}for a full diff run: diff <file> <file>${NEW_SUFFIX}  (+N -M = lines the rendered version adds / the kept file has extra)\n`);
+  }
   if (result.review > 0) stdout.write(`${prefix}${result.review} file(s) edited locally need review: merge the .wavework-new files, then delete them\n`);
   if (result.actions.length === 0 && result.notes.length === 0) stdout.write(`${prefix}nothing to do\n`);
   else if (!dryRun) stdout.write(`${done}\n`);

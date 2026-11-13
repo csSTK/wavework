@@ -43,6 +43,22 @@ Files in the lock that the new version no longer renders: gone from disk, droppe
 
 Hooks: entries are compared by content (key order ignored). `update` adds defined entries that are missing and removes the entries listed in `hooks` that are no longer defined. Entries you added, and owned entries you changed afterwards, are never touched. An owned entry you changed or removed is not re-added; every `update` reports it as `hook <event>: owned entry changed locally, not re-added` (exit code 0). To silence it, delete that entry from `hooks` in `.claude/wavework.lock.json`. When no owned entry is left, an emptied event (and an emptied `hooks` object) is removed.
 
+A `.wavework-new` file that still exists keeps its file reported even when `N` equals `L` and nothing changed upstream: that is how files from `init --adopt` stay reported until resolved.
+
+## `init --adopt`
+
+`wavework init --adopt` starts from a repository that already has hand-written files at the target paths. It uses the same plan as `update` with an empty lock, except for files that exist with different content: those are kept, `<file>.wavework-new` gets the rendered content `N`, and the lock records the hash of `N` (not of the file). The result for each rendered file:
+
+| Situation | Action |
+| --- | --- |
+| `D` missing | Write it (`create`). |
+| `D` equals `N` | Keep, lock `N`. A script with the right content but the wrong exec bit gets the bit fixed (`mode`). |
+| `D` differs from `N` | Keep your file untouched, write `<file>.wavework-new`, list it with a `+N -M` line summary, lock `N`, exit code 2. |
+
+The `+N -M` summary counts lines, so a CRLF file against the LF rendered version shows every line as changed; `, whitespace/newline only` marks files that differ only in the trailing newline, and `, upper bound` marks very large differences where the count is not exact.
+
+Because the lock holds `N`, a later `update` sees `D` differs from `L` with `N` equal to `L`; a surviving `.wavework-new` makes it report the file again (exit 2). Merge into your file and delete the `.wavework-new`, or make the file equal `N`, and the reports stop. The same path safety applies, the whole plan is checked before anything is written, and `--dry-run` writes nothing. `--adopt` refuses an existing lock and, without `.claude/wavework.json`, requires `--config <file>`.
+
 `--dry-run` prints the plan, writes nothing and returns the same exit code.
 
 ## Safety

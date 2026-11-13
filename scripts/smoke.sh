@@ -110,4 +110,34 @@ expect_exit 2 "npx wavework update" npx wavework update
 assert_file .claude/skills/next-task/SKILL.md.wavework-new
 grep -q 'local edit' .claude/skills/next-task/SKILL.md || fail "the locally edited file was overwritten"
 
+echo "== repository C: init --adopt (identical, differing and missing files)"
+C="$WORK/adopt"
+new_repo "$C"
+cd "$C"
+# Existing hand-written files: one identical to what wavework renders (copied from repository B), one different.
+mkdir -p .claude/skills/next-task .claude/skills/watch-ci
+cp "$B/.claude/skills/watch-ci/SKILL.md" .claude/skills/watch-ci/SKILL.md
+printf 'my own next-task\n' > .claude/skills/next-task/SKILL.md
+cp .claude/skills/next-task/SKILL.md "$WORK/next-task.mine"
+expect_exit 2 "npx wavework init --adopt --dry-run" npx wavework init --adopt --dry-run --config "$ROOT/test/fixtures/minimal.wavework.json"
+[ ! -e .claude/wavework.lock.json ] || fail "--adopt --dry-run wrote the lock"
+[ ! -e .claude/skills/next-task/SKILL.md.wavework-new ] || fail "--adopt --dry-run wrote a .wavework-new file"
+expect_exit 2 "npx wavework init --adopt" npx wavework init --adopt --config "$ROOT/test/fixtures/minimal.wavework.json"
+cmp -s .claude/skills/next-task/SKILL.md "$WORK/next-task.mine" || fail "--adopt changed the differing file"
+assert_file .claude/skills/next-task/SKILL.md.wavework-new .claude/wavework.lock.json .claude/agents/implementer-sonnet.md
+expect_exit 2 "npx wavework update" npx wavework update
+rm .claude/skills/next-task/SKILL.md.wavework-new
+expect_exit 0 "npx wavework update" npx wavework update
+expect_exit 1 "npx wavework init --adopt" npx wavework init --adopt
+
+echo "== repository D: init --adopt where every existing file is identical"
+D="$WORK/adopt-identical"
+new_repo "$D"
+cd "$D"
+expect_exit 0 "npx wavework init --config <file>" npx wavework init --config "$ROOT/test/fixtures/minimal.wavework.json"
+rm .claude/wavework.lock.json .claude/settings.json
+expect_exit 0 "npx wavework init --adopt" npx wavework init --adopt
+assert_file .claude/wavework.lock.json
+expect_exit 0 "npx wavework update" npx wavework update
+
 echo "smoke: OK (wavework $VERSION, node $(node -v))"
