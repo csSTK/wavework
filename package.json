@@ -10,6 +10,7 @@
     "bin/",
     "src/",
     "templates/",
+    "examples/",
     "CHANGELOG.md"
   ],
   "engines": {

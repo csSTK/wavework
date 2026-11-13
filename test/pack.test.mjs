@@ -5,7 +5,7 @@ import { fileURLToPath } from 'node:url';
 
 const root = fileURLToPath(new URL('..', import.meta.url));
 
-const ALLOWED_PREFIXES = ['bin/', 'src/', 'templates/'];
+const ALLOWED_PREFIXES = ['bin/', 'src/', 'templates/', 'examples/'];
 const ALLOWED_FILES = ['README.md', 'LICENSE', 'CHANGELOG.md', 'package.json'];
 
 test('npm pack --dry-run only includes the whitelisted paths', () => {
