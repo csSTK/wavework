@@ -1,6 +1,6 @@
 # Releasing wavework
 
-Releases are published to npm by `.github/workflows/publish.yml` when a `v*` tag is pushed. The workflow authenticates with npm trusted publishing: GitHub Actions gives the job an OIDC token (`id-token: write`) and npm accepts it in place of a token. No npm token is stored in this repository or in GitHub secrets, so there is nothing to rotate.
+Releases are published to npm by `.github/workflows/publish.yml` when a `v*` tag is pushed. Version 0.1.0 is the exception: it was published by hand before the workflow could be used (see below). The workflow authenticates with npm trusted publishing: GitHub Actions gives the job an OIDC token (`id-token: write`) and npm accepts it in place of a token. No npm token is stored in this repository or in GitHub secrets, so there is nothing to rotate.
 
 Requirements, from the npm documentation (checked for version 0.1.0):
 
@@ -19,7 +19,11 @@ Requirements, from the npm documentation (checked for version 0.1.0):
    - Allowed actions (optional): the docs say "`npm stage publish` is always allowed. Choose whether this trusted publisher can also publish directly with `npm publish`". Explicitly enable direct `npm publish`, because the workflow publishes with `npm publish --access public`.
 3. Save. "npm does not verify your trusted publisher configuration when you save it." The first successful publish validates it and binds it to the repository's identity. A new trusted publisher must complete that first publish within 2 days, or the configuration expires and must be deleted and created again.
 
-**First-publish caveat.** The npm trusted publishing page does not say whether the package must already exist on npm before a trusted publisher can be added. Confirm on npmjs.com whether the settings for `wavework` are available before the first release. If they are not, the first version has to be published another way, which is a decision for the maintainer (the project chose not to use a long-lived npm token). Do not add a token to the repository.
+**First publish (0.1.0, done).** A trusted publisher can only be added to a package that already exists on npm, and the npm account had no packages, so the settings were not available before the first release. Version 0.1.0 was therefore published manually by the maintainer, without provenance. Now that the package exists, the trusted publisher is added under its settings, as in the setup above. From 0.1.1 on, releases go through `publish.yml` with provenance. No npm token was added to the repository for the first release.
+
+## Version 0.1.0 and the `v0.1.0` tag
+
+`wavework@0.1.0` is already on npm, published manually. The `v0.1.0` tag is a marker for that release. Pushing it runs `publish.yml`, and the workflow then checks the registry with `npm view wavework@0.1.0 version`: when the version exists it skips the publish step and prints a notice (`wavework@0.1.0 already on npm, publish skipped`), so the job stays green. The same applies to any tag whose version is already published. A 404 from the registry means "not published yet" and the publish runs; any other npm error fails the job without publishing.
 
 ## Per release
 
@@ -35,7 +39,7 @@ Requirements, from the npm documentation (checked for version 0.1.0):
    git push origin v<version>
    ```
 
-7. Watch `publish.yml` for the tag. The job fails before publishing if the tag does not equal `v` plus the `package.json` version, and it runs `npm test` and the smoke run before `npm publish --access public`.
+7. Watch `publish.yml` for the tag. The job fails before publishing if the tag does not equal `v` plus the `package.json` version. It skips the publish when that version is already on npm, and otherwise runs `npm test` and the smoke run before `npm publish --access public`.
 8. Verify the release:
 
    ```bash

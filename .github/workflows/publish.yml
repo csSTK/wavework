@@ -33,9 +33,37 @@ jobs:
         env:
           TAG: ${{ github.ref_name }}
         run: test "v$(node -p "require('./package.json').version")" = "$TAG"
+      # A tag can be pushed for a version that is already on npm (the v0.1.0 tag marks the release
+      # that was published by hand). Such a version is skipped, not re-published. A 404 means "not
+      # published yet"; any other npm error fails the job, so a registry outage never skips a publish.
+      - name: Check whether this version is already on npm
+        id: published
+        run: |
+          NAME=$(node -p "require('./package.json').name")
+          VERSION=$(node -p "require('./package.json').version")
+          ERR_FILE=$(mktemp)
+          trap 'rm -f "$ERR_FILE"' EXIT
+          if OUT=$(npm view "$NAME@$VERSION" version 2>"$ERR_FILE"); then
+            if [ -n "$OUT" ]; then
+              echo "exists=true" >> "$GITHUB_OUTPUT"
+            else
+              echo "exists=false" >> "$GITHUB_OUTPUT"
+            fi
+          elif grep -q 'E404' "$ERR_FILE"; then
+            echo "exists=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "::error::npm view $NAME@$VERSION failed, not publishing" >&2
+            cat "$ERR_FILE" >&2
+            exit 1
+          fi
       - name: Test
         run: npm test
       - name: Smoke run of the packed CLI
         run: bash scripts/smoke.sh
       - name: Publish
+        if: steps.published.outputs.exists != 'true'
         run: npm publish --access public
+      - name: Notice when the version was already published
+        if: steps.published.outputs.exists == 'true'
+        run: |
+          echo "::notice::$(node -p "const p = require('./package.json'); p.name + '@' + p.version") already on npm, publish skipped"

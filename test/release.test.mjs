@@ -1,7 +1,9 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
-import { existsSync, readFileSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const root = fileURLToPath(new URL('..', import.meta.url));
@@ -124,4 +126,123 @@ test('docs/releasing.md exists, is linked from README Development, and covers th
 test('README status line says 0.1.0 is the first release', () => {
   assert.match(readme, /\*\*Status: 0\.1\.0, first release\. Expect changes before 1\.0\.\*\*/);
   assert.doesNotMatch(readme, /pre-release/i);
+});
+
+/** The steps of publish.yml's job, as { name, block } in file order. */
+function publishSteps(yaml) {
+  const starts = [...yaml.matchAll(/^      - name: (.*)$/gm)];
+  return starts.map((m, i) => ({
+    name: m[1],
+    block: yaml.slice(m.index, i + 1 < starts.length ? starts[i + 1].index : yaml.length),
+  }));
+}
+
+/** The step whose name starts with `prefix`; fails the test if there is none. */
+function stepNamed(prefix) {
+  const step = publishSteps(publish).find((s) => s.name.startsWith(prefix));
+  assert.ok(step, `publish.yml has no step named "${prefix}..."`);
+  return step;
+}
+
+/** The multi-line `run: |` script of a step, dedented. */
+function runScript(block) {
+  const lines = block.split('\n');
+  const i = lines.findIndex((l) => /^\s+run:\s*\|\s*$/.test(l));
+  assert.notEqual(i, -1, 'step has no multi-line run: | script');
+  const body = [];
+  for (const line of lines.slice(i + 1)) {
+    if (line.trim() !== '' && !/^ {10}/.test(line)) break;
+    body.push(line.slice(10));
+  }
+  return body.join('\n');
+}
+
+/** Runs the published-check script with a stubbed npm; returns status, stderr and GITHUB_OUTPUT. */
+function runPublishedCheck(npmBehaviour) {
+  const dir = mkdtempSync(join(tmpdir(), 'wavework-npm-stub-'));
+  try {
+    const bin = join(dir, 'bin');
+    mkdirSync(bin);
+    writeFileSync(join(bin, 'npm'), [
+      '#!/usr/bin/env bash',
+      'case "$NPM_STUB" in',
+      '  version) echo "${2#*@}" ;;',
+      '  e404) echo "npm error code E404" >&2; echo "npm error 404 Not Found - GET https://registry.npmjs.org/wavework" >&2; exit 1 ;;',
+      '  empty) ;;',
+      '  other) echo "npm error code ECONNRESET" >&2; exit 1 ;;',
+      'esac',
+      '',
+    ].join('\n'), { mode: 0o755 });
+    const outFile = join(dir, 'github-output');
+    writeFileSync(outFile, '');
+    const result = spawnSync('bash', ['--noprofile', '--norc', '-eo', 'pipefail', '-c', runScript(stepNamed('Check whether').block)], {
+      cwd: root,
+      env: { PATH: `${bin}:${process.env.PATH}`, NPM_STUB: npmBehaviour, GITHUB_OUTPUT: outFile },
+      encoding: 'utf8',
+    });
+    return { status: result.status, stderr: result.stderr, output: readFileSync(outFile, 'utf8') };
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+}
+
+test('the published check runs after the tag guard and before the tests', () => {
+  const names = publishSteps(publish).map((s) => s.name);
+  const guard = names.findIndex((n) => /tag/i.test(n));
+  const check = names.findIndex((n) => n.startsWith('Check whether'));
+  const test_ = names.findIndex((n) => n === 'Test');
+  assert.ok(guard !== -1 && check !== -1 && test_ !== -1, `steps: ${names.join(' | ')}`);
+  assert.ok(guard < check && check < test_, 'order must be tag guard, published check, Test');
+  assert.match(stepNamed('Check whether').block, /^\s+id: published\s*$/m, 'the check step needs id: published');
+});
+
+test('the published check writes exists=true when npm returns the version', () => {
+  const r = runPublishedCheck('version');
+  assert.equal(r.status, 0, r.stderr);
+  assert.equal(r.output, 'exists=true\n');
+});
+
+test('the published check writes exists=false on E404 (version not published yet)', () => {
+  const r = runPublishedCheck('e404');
+  assert.equal(r.status, 0, r.stderr);
+  assert.equal(r.output, 'exists=false\n');
+});
+
+test('the published check writes exists=false when npm prints nothing and exits 0', () => {
+  const r = runPublishedCheck('empty');
+  assert.equal(r.status, 0, r.stderr);
+  assert.equal(r.output, 'exists=false\n');
+});
+
+test('the published check fails the job on any other npm error instead of skipping the publish', () => {
+  const r = runPublishedCheck('other');
+  assert.notEqual(r.status, 0, 'a non-404 npm error must fail the step');
+  assert.equal(r.output, '', 'no output may be written, so the publish cannot be skipped silently');
+  assert.match(r.stderr, /ECONNRESET/, 'the npm error must be shown in the log');
+});
+
+test('Publish runs only when the published check says the version is not on npm', () => {
+  const publishStep = stepNamed('Publish');
+  assert.match(publishStep.block, /^\s+if: steps\.published\.outputs\.exists != 'true'\s*$/m);
+  assert.match(publishStep.block, /run: npm publish --access public/);
+});
+
+test('Test and smoke steps are not skipped by the published check', () => {
+  for (const prefix of ['Test', 'Smoke run']) {
+    assert.doesNotMatch(stepNamed(prefix).block, /^\s+if:/m, `"${prefix}" must always run`);
+  }
+});
+
+test('a notice step reports the skipped publish when the version already exists', () => {
+  const notice = publishSteps(publish).find((s) => /^\s+if: steps\.published\.outputs\.exists == 'true'\s*$/m.test(s.block));
+  assert.ok(notice, 'missing a step that runs when steps.published.outputs.exists == true');
+  assert.match(notice.block, /::notice::.*already on npm, publish skipped/);
+});
+
+test('docs/releasing.md explains the manual 0.1.0 release, the v0.1.0 marker and the skip on re-runs', () => {
+  const doc = read('docs/releasing.md');
+  for (const needle of ['published manually', 'marker', 'already', 'trusted publisher', '0.1.1']) {
+    assert.ok(doc.includes(needle), `docs/releasing.md must mention "${needle}"`);
+  }
+  assert.doesNotMatch(doc, /Confirm on npmjs\.com whether the settings for `wavework` are available/, 'the open first-publish question is answered and must be removed');
 });
