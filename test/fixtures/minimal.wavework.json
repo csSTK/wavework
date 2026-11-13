@@ -1,0 +1,6 @@
+{
+  "baseBranch": "main",
+  "checks": [
+    { "name": "app", "dir": ".", "whenPaths": ["src/"], "focused": "npm test", "full": "npm test" }
+  ]
+}
