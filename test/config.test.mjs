@@ -223,3 +223,24 @@ test('whenPaths must be relative prefixes without ..', () => {
   assert.match(errorOf(minimal({ checks: [area({ whenPaths: ['a/../b'] })] })), /checks\[0\]\.whenPaths\[0\]: must not contain \.\. segments/);
   assert.match(errorOf(minimal({ checks: [area({ whenPaths: ['..'] })] })), /must not contain \.\. segments/);
 });
+
+test('checks[].dir, codeMap.path and uiSkill.appliesTo must be repo-relative (no leading /, no .. segments)', () => {
+  const bad = [
+    [{ checks: [area({ dir: '/etc' })] }, /checks\[0\]\.dir: .*relative/],
+    [{ checks: [area({ dir: '../x' })] }, /checks\[0\]\.dir: .*\.\./],
+    [{ codeMap: { path: '/abs/MAP.md' } }, /codeMap\.path: .*relative/],
+    [{ codeMap: { path: 'a/../../MAP.md' } }, /codeMap\.path: .*\.\./],
+    [{ uiSkill: { name: 'x', appliesTo: ['../ui/'] } }, /uiSkill\.appliesTo\[0\]: .*\.\./],
+    [{ uiSkill: { name: 'x', appliesTo: ['/ui/'] } }, /uiSkill\.appliesTo\[0\]: .*relative/],
+  ];
+  for (const [patch, re] of bad) assert.match(errorOf(minimal(patch)), re);
+  assert.doesNotThrow(() => validateConfig(minimal({ codeMap: { path: 'docs/CODE_MAP.md' }, uiSkill: { name: 'x', appliesTo: ['frontend/'] }, checks: [area({ dir: '.' })] })));
+});
+
+test('"." means the whole repo; "./" and "." segments are rejected consistently', () => {
+  assert.doesNotThrow(() => validateConfig(minimal({ checks: [area({ dir: '.', whenPaths: ['.'] })] })));
+  assert.doesNotThrow(() => validateConfig(minimal({ checks: [area({ whenPaths: ['frontend/', 'a/b'] })] })));
+  for (const bad of ['./', './a', 'a/./b']) {
+    assert.match(errorOf(minimal({ checks: [area({ whenPaths: [bad] })] })), /whenPaths\[0\]: .*"\."/);
+  }
+});

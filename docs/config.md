@@ -54,8 +54,8 @@ One entry per area of the codebase with its own test commands. Area names must b
 | Field | Type | Required | Meaning |
 |---|---|---|---|
 | `name` | string | yes | Unique area name, e.g. `"backend"` |
-| `dir` | string | yes | Directory commands run from, relative to the repo root |
-| `whenPaths` | array of strings, at least one | yes | Path prefixes relative to the repo root (no leading `/`, no `..` segments); the area counts as changed when a changed file path starts with one |
+| `dir` | string | yes | Directory commands run from, relative to the repo root (no leading `/`, no `..` segments; `.` is fine) |
+| `whenPaths` | array of strings, at least one | yes | Path prefixes relative to the repo root (no leading `/`, no `..` or `.` segments such as `./x`); `.` alone means the whole repo; the area counts as changed when a changed file path starts with one |
 | `focused` | string | yes | Command for the changed part only |
 | `full` | string | yes | Command for the whole area |
 | `lint` | string | no | Lint command |
@@ -78,11 +78,11 @@ When `rules` is given it replaces the default rules entirely.
 
 ### `codeMap` (optional)
 
-`path`: file listing one line per source file that implementers keep current. Example: `"docs/CODE_MAP.md"`. Omit the whole object if the repo has no code map.
+`path`: repo-relative path (no leading `/`, no `..` segments) of a file listing one line per source file that implementers keep current. Example: `"docs/CODE_MAP.md"`. Omit the whole object if the repo has no code map.
 
 ### `uiSkill` (optional)
 
-A skill implementers must read before touching UI. `name`: the skill name, `appliesTo`: path prefixes it covers. Example: `{ "name": "apple-design", "appliesTo": ["frontend/"] }`.
+A skill implementers must read before touching UI. `name`: the skill name, `appliesTo`: repo-relative path prefixes it covers (no leading `/`, no `..` segments). Example: `{ "name": "apple-design", "appliesTo": ["frontend/"] }`.
 
 ### `findings.epicTitles`
 

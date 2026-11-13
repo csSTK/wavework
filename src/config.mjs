@@ -71,11 +71,13 @@ function strArray(v, path, errs, { minItems = 0, item = str } = {}) {
   return v.map((entry, i) => item(entry, `${path}[${i}]`, errs));
 }
 
-/** Path prefix relative to the repo root: no leading slash, no `..` segments. */
+/** Path prefix relative to the repo root: no leading slash, no `..` segments, no `.` segments; `.` alone means the whole repo. */
 function relativePrefix(v, path, errs) {
   if (str(v, path, errs) === undefined) return undefined;
   if (v.startsWith('/')) errs.push(`${path}: must be relative to the repo root (no leading /)`);
-  if (v.split(/[\\/]/).includes('..')) errs.push(`${path}: must not contain .. segments`);
+  const segments = v.split(/[\\/]/);
+  if (segments.includes('..')) errs.push(`${path}: must not contain .. segments`);
+  if (v !== '.' && segments.includes('.')) errs.push(`${path}: must not contain "." segments (use "." alone for the whole repo)`);
   return v;
 }
 
@@ -139,7 +141,7 @@ function area(v, path, errs) {
   if (!obj(v, path, errs, keys)) return undefined;
   const out = {
     name: field(v, 'name', path, errs, str, { required: true }),
-    dir: field(v, 'dir', path, errs, str, { required: true }),
+    dir: field(v, 'dir', path, errs, relativePrefix, { required: true }),
     whenPaths: field(v, 'whenPaths', path, errs, (x, p, e) => strArray(x, p, e, { minItems: 1, item: relativePrefix }), { required: true }),
     focused: field(v, 'focused', path, errs, str, { required: true }),
     full: field(v, 'full', path, errs, str, { required: true }),
@@ -195,14 +197,14 @@ function tracker(v, path, errs) {
 
 function codeMap(v, path, errs) {
   if (!obj(v, path, errs, ['path'])) return undefined;
-  return { path: field(v, 'path', path, errs, str, { required: true }) };
+  return { path: field(v, 'path', path, errs, relativePrefix, { required: true }) };
 }
 
 function uiSkill(v, path, errs) {
   if (!obj(v, path, errs, ['name', 'appliesTo'])) return undefined;
   return {
     name: field(v, 'name', path, errs, str, { required: true }),
-    appliesTo: field(v, 'appliesTo', path, errs, (x, p, e) => strArray(x, p, e, { minItems: 1 }), { required: true }),
+    appliesTo: field(v, 'appliesTo', path, errs, (x, p, e) => strArray(x, p, e, { minItems: 1, item: relativePrefix }), { required: true }),
   };
 }
 
