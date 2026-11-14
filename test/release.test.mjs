@@ -98,11 +98,11 @@ test('tag guard fails unless the tag equals v + package.json version', () => {
 });
 
 test('CHANGELOG has a section for the current version above the link references, with an empty Unreleased on top', () => {
-  assert.equal(pkg.version, '0.2.0');
+  assert.equal(pkg.version, '0.3.0');
   const unreleased = changelog.indexOf('## [Unreleased]');
-  const released = changelog.indexOf(`## [${pkg.version}] - 2026-11-13`);
+  const released = changelog.indexOf(`## [${pkg.version}] - 2026-11-14`);
   assert.notEqual(unreleased, -1, 'missing ## [Unreleased]');
-  assert.notEqual(released, -1, `missing ## [${pkg.version}] - 2026-11-13`);
+  assert.notEqual(released, -1, `missing ## [${pkg.version}] - 2026-11-14`);
   assert.ok(unreleased < released, '[Unreleased] must come before the release');
   const between = changelog.slice(unreleased + '## [Unreleased]'.length, released);
   assert.doesNotMatch(between, /^### /m, '[Unreleased] must be empty after the cut');

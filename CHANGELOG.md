@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-11-14
+
+### Fixed
+
+- Pipeline dashboard: runs of a second repository no longer stay invisible until the first repository's server is stopped. Every repository uses the same port (4690 by default), and the SessionStart hook accepted any healthy dashboard on it, so a session in repository B kept showing repository A's server and B's runs. `/api/health` now reports the run store it serves (`store`); the hook only accepts a server that serves its own repository's store (servers from before this change are matched by their checkout) and otherwise uses the next port (up to 9 above the configured one), starting its own server there. It prints the dashboard URL at every session start, so the actual port is always visible.
+
+### Changed
+
+- Pipeline dashboard UI, laid out like a GitHub Actions run. Each run in the list shows its stages as a strip (Plan, Wave 1..n, Finish, CI; one per epic for a batch), each with a status icon (succeeded, failed, in progress, queued, skipped), a line saying what the agents are doing right now (e.g. `Wave 2 · rumbo-qu3.2 (sonnet) fixing review round 1`), how long ago the last event was (flagged as quiet after 20 minutes) and failure and warning counts. The run page has a stage sidebar, a pipeline graph with sub-steps (Deps, Review, Push) and beads per wave, a "Now" banner, and Annotations listing every problem with the stage it happened in: failed tests, review rounds that asked for fixes (a warning once a later round passed), blocked beads, red-before-green exceptions, where a blocked run stopped, and failed CI workflows. The bead, review, test, finding and CI tables stay below.
+- New default theme tokens for the status icons and the layout (`--color-status-*`, `--color-on-status`, `--size-icon`, `--size-sidebar`, `--size-stage`, `--size-connector`, `--duration-spin`, `--page-width-detail`); a project `tokensFile` may override them.
+
 ## [0.2.0] - 2026-11-13
 
 ### Added
@@ -53,7 +64,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Pipeline dashboard: `init`/`update` install the recorder, hooks, server and UI into `.claude/wavework/dashboard/` (committed, works in worktrees without `node_modules`) and register its `SessionStart`/`SubagentStop` hooks while `dashboard.enabled`; `dashboard.port` and `dashboard.tokensFile` in the config; `wavework dashboard` starts the server; the skills' `Record:` lines follow the config; neutral default theme; disabling removes its hooks and unedited runtime files on `update` (`docs/dashboard.md`).
 - README: install, daily use, configuration, upgrading, dashboard and a sourced comparison with Sous Factory. `scripts/smoke.sh` runs the README commands against the packed package in CI (`smoke` job), and `test/readme.test.mjs` fails when a README command has no smoke step or test.
 
-[Unreleased]: https://github.com/csSTK/wavework/compare/v0.2.0...HEAD
+[Unreleased]: https://github.com/csSTK/wavework/compare/v0.3.0...HEAD
+[0.3.0]: https://github.com/csSTK/wavework/releases/tag/v0.3.0
 [0.2.0]: https://github.com/csSTK/wavework/releases/tag/v0.2.0
 [0.1.2]: https://github.com/csSTK/wavework/releases/tag/v0.1.2
 [0.1.1]: https://github.com/csSTK/wavework/releases/tag/v0.1.1
