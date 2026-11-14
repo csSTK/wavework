@@ -1,12 +1,12 @@
 # Pipeline dashboard
 
-A live view of every `/next-task*` run: steps, waves, sub-agents with model, duration, tokens and estimated cost, reviews, tests, and the CI state of the pushed commit. Plain Node (built-ins only), no build, no database.
+A live view of every `/next-task*` run, laid out like a GitHub Actions run: each run's stages (plan, waves, finish, CI) with their status, what the agents are doing right now, and where problems happened (failed tests, review rounds asking for fixes, blocked beads, failed CI), plus sub-agents with model, duration, tokens and estimated cost. Plain Node (built-ins only), no build, no database.
 
 ## What gets installed
 
 With `dashboard.enabled` (the default), `wavework init` and `update` write the runtime to `.claude/wavework/dashboard/` (recorder, server, UI, hooks, `config.json`) and register two hooks in `.claude/settings.json`: `SessionStart` (starts the server if none runs and prints its URL) and `SubagentStop` (records each sub-agent's tokens and cost). The skills then contain `Record:` lines that call `node .claude/wavework/dashboard/record.mjs`. The runtime is a committed copy, so it works in git worktrees without `node_modules`: commit `.claude/`.
 
-Open the URL the session prints, or run `npx wavework dashboard` in the repository (foreground; it starts the repo's installed server and fails with a clear message when the dashboard is disabled or not installed).
+Open the URL the session prints (at every session start), or run `npx wavework dashboard` in the repository (foreground; it starts the repo's installed server and fails with a clear message when the dashboard is disabled or not installed).
 
 ## Configuration
 
@@ -17,7 +17,7 @@ In `.claude/wavework.json` (see [config.md](config.md)):
 ```
 
 - `enabled`: `false` removes the Record lines, the runtime files and the hooks on the next `wavework update` (files you edited are kept and reported).
-- `port`: 1024 to 65535, default 4690. The environment variable `PIPELINE_DASHBOARD_PORT` overrides it.
+- `port`: 1024 to 65535, default 4690. The environment variable `PIPELINE_DASHBOARD_PORT` overrides it. Each repository runs its own server: when the port is taken by another repository's dashboard (or any other process), the SessionStart hook uses the next free port, up to 9 above it, and prints that URL.
 - `tokensFile`: optional CSS file with your design tokens. The UI loads a neutral default theme first, then this file, so it can override any token (the token names are in `.claude/wavework/dashboard/public/default-theme.css`). The path is resolved inside the repository; a file that is missing, outside the repo or reached through a symlink leaving it is not served.
 
 ## Where the data lives

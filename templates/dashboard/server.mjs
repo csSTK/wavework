@@ -180,7 +180,8 @@ export function createServer({
     const rawPath = (req.url ?? '/').split('?')[0].split('#')[0];
 
     // root: the checkout this server runs from, so the SessionStart hook can replace a server whose worktree was deleted.
-    if (rawPath === '/api/health') return sendJson(res, 200, { ok: true, root: HERE });
+    // store: the run store it serves, so a hook in another repository does not mistake this server for its own.
+    if (rawPath === '/api/health') return sendJson(res, 200, { ok: true, root: HERE, store: storeDir });
     // project: the repo directory name, shown in the UI title.
     if (rawPath === '/api/info') return sendJson(res, 200, { project });
     if (rawPath === '/api/runs') return sendJson(res, 200, listSummaries());

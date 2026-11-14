@@ -2,8 +2,9 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import {
   ciBadge, formatCost, formatDuration, formatTokens, findingsOf, parseRoute, relativeTime,
-  reviewsByBead, resultBadge, safeHref, formatStarted, tokensOf, stepLabel, reviewRows, sortRuns, statusBadge, totalTokens,
+  reviewsByBead, resultBadge, safeHref, formatStarted, tokensOf, stepLabel, reviewRows, sortRuns, statusBadge, totalTokens, pipelineView,
 } from '../../templates/dashboard/public/format.mjs';
+import { deriveTimeline } from '../../templates/dashboard/lib/derive.mjs';
 
 test('formatDuration: unknown is a dash, then s / m / h', () => {
   assert.equal(formatDuration(null), '—');
@@ -155,4 +156,73 @@ test('reviewRows lists review events with bead, newest first', () => {
     { type: 'review', ts: '2', verdict: 'pass', round: 2 },
   ]);
   assert.deepEqual(rows.map((r) => [r.bead, r.round, r.mustFix]), [[null, 2, 0], ['a', 1, 2]]);
+});
+
+/* ---------- pipelineView ---------- */
+const ev = (ts, type, fields = {}) => ({ ts: `2026-11-14T10:${String(ts).padStart(2, '0')}:00.000Z`, type, ...fields });
+const viewFor = (run, events, ci = null, members = []) => pipelineView({ run, events, timeline: deriveTimeline(run, events), ci }, members);
+const brief = (v) => v.stages.map((s) => `${s.id}:${s.status}`);
+
+test('pipelineView: a running run shows done, current and queued stages and what the agents do now', () => {
+  const run = { id: 'r', kind: 'next-task', status: 'running', started: '2026-11-14T10:00:00.000Z' };
+  const events = [
+    ev(0, 'step-start', { step: 'plan' }), ev(1, 'step-start', { step: 'deps' }), ev(2, 'step-end', { step: 'deps' }), ev(3, 'step-end', { step: 'plan' }),
+    ev(4, 'step-start', { step: 'wave', wave: 1 }),
+    ev(5, 'child-start', { bead: 'b.1', model: 'sonnet', wave: 1 }), ev(5, 'child-start', { bead: 'b.2', model: 'haiku', wave: 1 }),
+    ev(9, 'review', { bead: 'b.1', verdict: 'FIX', mustFix: 2, round: 1 }),
+  ];
+  const v = viewFor(run, events);
+  assert.deepEqual(brief(v), ['plan:success', 'wave-1:in_progress', 'finish:queued', 'ci:queued']);
+  assert.deepEqual(v.stages[0].sub.map((x) => x.label), ['Deps']);
+  assert.equal(v.activity, 'Wave 1 · b.1 (sonnet) fixing review round 1 · b.2 (haiku) implementing');
+  assert.deepEqual(v.problems.map((p) => [p.level, p.stage, p.title]), [['warning', 'wave-1', 'Review of b.1 asked for 2 fixes (round 1)']]);
+  assert.equal(v.stages[1].problems.warning, 1);
+  assert.equal(v.lastEventTs, events[events.length - 1].ts);
+});
+
+test('pipelineView: a blocked run marks the stage it stopped in as failed and lists the problems there', () => {
+  const run = { id: 'r', kind: 'next-task', status: 'blocked', started: '2026-11-14T10:00:00.000Z', ended: '2026-11-14T10:30:00.000Z' };
+  const events = [
+    ev(0, 'step-start', { step: 'plan' }), ev(1, 'step-end', { step: 'plan' }), ev(2, 'step-start', { step: 'wave', wave: 1 }),
+    ev(3, 'child-start', { bead: 'b.1', wave: 1 }), ev(4, 'tests', { scope: 'backend', passed: 4, failed: 2 }),
+    ev(5, 'review', { bead: 'b.1', verdict: 'FIX', mustFix: 1, round: 3 }), ev(6, 'child-end', { bead: 'b.1', result: 'blocked' }),
+  ];
+  const v = viewFor(run, events);
+  assert.deepEqual(brief(v), ['plan:success', 'wave-1:failure', 'finish:skipped', 'ci:skipped']);
+  assert.equal(v.activity, null);
+  assert.deepEqual(v.problems.map((p) => [p.level, p.stage, p.title]), [
+    ['failure', 'wave-1', '2 backend tests failed'],
+    ['failure', 'wave-1', 'Review of b.1 asked for 1 fix (round 3)'],
+    ['failure', 'wave-1', 'b.1 blocked'],
+    ['failure', 'wave-1', 'Run blocked in Wave 1'],
+  ]);
+});
+
+test('pipelineView: finish collects review and push, a resolved review is a warning, CI state becomes the CI stage', () => {
+  const run = { id: 'r', kind: 'next-task', status: 'done', started: '2026-11-14T10:00:00.000Z', ended: '2026-11-14T10:40:00.000Z' };
+  const events = [
+    ev(0, 'step-start', { step: 'plan' }), ev(1, 'step-end', { step: 'plan' }),
+    ev(2, 'step-start', { step: 'wave', wave: 1 }), ev(3, 'child-start', { bead: 'b.1', wave: 1 }),
+    ev(4, 'review', { bead: 'b.1', verdict: 'FIX', mustFix: 1, round: 1 }), ev(5, 'review', { bead: 'b.1', verdict: 'PASS', round: 2 }),
+    ev(6, 'child-end', { bead: 'b.1', result: 'committed' }), ev(7, 'step-end', { step: 'wave', wave: 1 }),
+    ev(8, 'step-start', { step: 'finish' }), ev(9, 'step-start', { step: 'review' }), ev(10, 'step-end', { step: 'review' }),
+    ev(11, 'step-start', { step: 'push' }), ev(12, 'step-end', { step: 'push', sha: 'abcdef1234' }), ev(13, 'step-end', { step: 'finish' }),
+  ];
+  const v = viewFor(run, events, { sha: 'abcdef1234', state: 'failure', runs: [{ name: 'build', conclusion: 'failure' }, { name: 'lint', conclusion: 'success' }] });
+  assert.deepEqual(brief(v), ['plan:success', 'wave-1:success', 'finish:success', 'ci:failure']);
+  assert.deepEqual(v.stages[2].sub.map((x) => `${x.label}:${x.status}`), ['Review:success', 'Push:success']);
+  assert.deepEqual(v.problems.map((p) => [p.level, p.stage, p.detail]), [['warning', 'wave-1', 'passed in round 2'], ['failure', 'ci', 'build']]);
+  assert.equal(v.stages[1].beads[0].reviewRounds, 2);
+});
+
+test('pipelineView: a batch has one stage per epic, units not started yet are queued', () => {
+  const run = { id: 'batch.a', kind: 'batch', units: ['a', 'b', 'c'], status: 'running', started: '2026-11-14T10:00:00.000Z' };
+  const members = [
+    { id: 'epic.b', units: ['b'], status: 'running', started: '2026-11-14T10:20:00.000Z', ended: null },
+    { id: 'epic.a', units: ['a'], status: 'blocked', started: '2026-11-14T10:00:00.000Z', ended: '2026-11-14T10:19:00.000Z' },
+  ];
+  const v = viewFor(run, [ev(0, 'run-start')], null, members);
+  assert.deepEqual(brief(v), ['member:epic.a:failure', 'member:epic.b:in_progress', 'unit:c:queued']);
+  assert.equal(v.activity, 'Working on b');
+  assert.deepEqual(v.problems.map((p) => p.title), ['a blocked']);
 });

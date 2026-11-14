@@ -93,6 +93,7 @@ async function sandbox(t) {
   const store = path.join(root, 'store');
   const port = await freePort();
   usedPorts.add(port);
+  usedPorts.add(port + 1);
   const box = {
     root,
     store,
@@ -114,7 +115,7 @@ async function sandbox(t) {
   return box;
 }
 
-/** Stops the server recorded by the hook in <store>/server.pid, then waits until the port answers nothing. */
+/** Stops the server recorded by the hook in <store>/server.pid, then waits until the port (and the next) answers nothing. */
 async function stopRecorded({ port, pidFile }) {
   if (existsSync(pidFile)) {
     try {
@@ -122,8 +123,8 @@ async function stopRecorded({ port, pidFile }) {
       process.kill(pid, 'SIGTERM');
     } catch { /* not recorded, malformed, or already gone */ }
   }
-  const down = await waitFor(async () => !(await healthOk(port)), 3000);
-  if (!down) throw new Error(`a server still answers on port ${port} after cleanup`);
+  const down = await waitFor(async () => !(await healthOk(port)) && !(await healthOk(port + 1)), 3000);
+  if (!down) throw new Error(`a server still answers on port ${port} or ${port + 1} after cleanup`);
 }
 
 /** True while a child process has neither exited nor been killed by a signal (exitCode stays null on a signal). */
@@ -160,11 +161,11 @@ function expectedRoot() {
  * Runs as its own process. Named like the real server so the hook's "is this the dashboard server" check
  * (ps command line) accepts it.
  */
-function spawnFakeServer(box, reportedRoot, dir = path.join(box.root, 'dashboard')) {
+function spawnFakeServer(box, reportedRoot, dir = path.join(box.root, 'dashboard'), reportedStore = undefined) {
   mkdirSync(dir, { recursive: true });
   const script = path.join(dir, 'server.mjs');
   writeFileSync(script, `import http from 'node:http';
-http.createServer((q, s) => { s.setHeader('content-type', 'application/json'); s.end(JSON.stringify({ ok: true, root: ${JSON.stringify(reportedRoot)} })); })
+http.createServer((q, s) => { s.setHeader('content-type', 'application/json'); s.end(JSON.stringify({ ok: true, root: ${JSON.stringify(reportedRoot)}, store: ${JSON.stringify(reportedStore)} })); })
   .listen(${box.port}, '127.0.0.1');
 `);
   return killOnExit(box, spawn(process.execPath, [script], { stdio: 'ignore' }));
@@ -186,12 +187,24 @@ async function spawnStaleServer(box) {
 /** Imports the hook's helpers (the CLI does not run when imported). */
 const hookModule = () => import(HOOK);
 
-test('running server: hook prints nothing and starts nothing', async (t) => {
+/** The URL message for this repository's server on `port`, noting the configured port when it differs. */
+const urlMessage = (box, port = box.port) => `Pipeline dashboard: http://127.0.0.1:${port}${port === box.port ? '' : ` (port ${box.port} is taken by another process or repository)`}`;
+
+/** Asserts the hook started this repository's server on the port after the configured one. */
+async function assertStartedOnNextPort(box, r) {
+  assert.equal(r.code, 0);
+  assert.equal(JSON.parse(r.stdout).systemMessage, urlMessage(box, box.port + 1));
+  const health = await healthBody(box.port + 1);
+  assert.ok(health, 'a server for this repository must answer on the next port');
+  assert.equal(health.store, box.store);
+}
+
+test('running server: hook prints its URL and starts nothing', async (t) => {
   const box = await sandbox(t);
   await startServer(box);
   const r = await runHook(box);
   assert.equal(r.code, 0);
-  assert.equal(r.stdout, '');
+  assert.equal(JSON.parse(r.stdout).systemMessage, urlMessage(box));
   assert.equal(existsSync(box.pidFile), false, 'no second server must be started');
 });
 
@@ -227,9 +240,10 @@ test('two hooks started back to back start only one server', async (t) => {
   assert.equal(log.includes('EADDRINUSE'), false, `second server tried to start, log:\n${log}`);
   const lines = log.split('\n').filter((l) => l.includes('pipeline dashboard:')).length;
   assert.equal(lines, 1, `expected exactly one "pipeline dashboard:" line, log:\n${log}`);
-  // A third run after both returned sees the running server and stays silent.
+  // A third run after both returned sees the running server and only prints its URL.
   const c = await runHook(box);
-  assert.equal(c.stdout, '');
+  assert.equal(JSON.parse(c.stdout).systemMessage, urlMessage(box));
+  assert.equal(readFileSync(box.logFile, 'utf8').split('\n').filter((l) => l.includes('pipeline dashboard:')).length, 1);
 });
 
 test('stale start lock (crashed hook, older than 5 s) is taken over: server starts', async (t) => {
@@ -272,16 +286,14 @@ test('healthy server whose checkout is gone: stopped via the recorded pid, repla
   assert.equal(health.root, expectedRoot());
 });
 
-test('healthy server whose checkout is gone but not the recorded pid: nothing is killed, one warning', async (t) => {
+test('healthy server whose checkout is gone but not the recorded pid: nothing is killed, the next port is used', async (t) => {
   const box = await sandbox(t);
   mkdirSync(box.store, { recursive: true });
   const stale = await spawnStaleServer(box);
   const unrelated = killOnExit(box, spawn(process.execPath, ['-e', 'setInterval(() => {}, 1000)'], { stdio: 'ignore' }));
   // The recorded pid belongs to another process on another port: it must not be killed.
-  writeFileSync(box.pidFile, JSON.stringify({ pid: unrelated.pid, port: box.port + 1, root: stale.staleRoot }));
-  const r = await runHook(box);
-  assert.equal(r.code, 0);
-  assert.match(JSON.parse(r.stdout).systemMessage, /in use/);
+  writeFileSync(box.pidFile, JSON.stringify({ pid: unrelated.pid, port: box.port + 5, root: stale.staleRoot }));
+  await assertStartedOnNextPort(box, await runHook(box));
   assert.ok(isAlive(unrelated), 'unrelated process must stay alive');
   assert.ok(isAlive(stale), 'the server that is not the recorded one must stay alive');
 });
@@ -294,9 +306,7 @@ test('record names a live process that does not hold the port: nothing is killed
   // Same port and same missing root as the answering server, but the recorded pid is a bystander, not the listener
   // (what pid reuse after a restart would look like).
   writeFileSync(box.pidFile, JSON.stringify({ pid: bystander.pid, port: box.port, root: stale.staleRoot }));
-  const r = await runHook(box);
-  assert.equal(r.code, 0);
-  assert.match(JSON.parse(r.stdout).systemMessage, /in use/);
+  await assertStartedOnNextPort(box, await runHook(box));
   assert.ok(isAlive(bystander), 'a process that does not hold the port must not be killed');
   assert.ok(isAlive(stale), 'the listener is left alone when its pid is not the recorded one');
 });
@@ -328,19 +338,56 @@ test('recording a spawned pid replaces a record whose process is gone', async (t
   assert.equal(JSON.parse(readFileSync(box.pidFile, 'utf8')).pid, newcomer.pid);
 });
 
-test('foreign process on the port: one warning, nothing started', async (t) => {
+test('foreign process on the port: the server starts on the next port', async (t) => {
   const box = await sandbox(t);
   const foreign = http.createServer((req, res) => { res.writeHead(404); res.end('nope'); });
   await new Promise((resolve) => foreign.listen(box.port, '127.0.0.1', resolve));
   t.after(() => new Promise((resolve) => foreign.close(resolve)));
+  await assertStartedOnNextPort(box, await runHook(box));
+});
+
+test("another repository's dashboard on the port: it is left alone and this repository's server starts on the next port", async (t) => {
+  // The bug this guards against: every repository shares the configured port, so a session in repository B used to
+  // find repository A's healthy server, print nothing, and B's runs never appeared until A's server was stopped.
+  const box = await sandbox(t);
+  const otherRepo = spawnFakeServer(box, DASH, path.join(box.root, 'other-repo'), path.join(box.root, 'other-store'));
+  assert.ok(await waitFor(() => healthOk(box.port)), 'stand-in did not come up');
+  await assertStartedOnNextPort(box, await runHook(box));
+  assert.ok(isAlive(otherRepo), "the other repository's server must stay alive");
+  // The next session finds the server on the next port instead of starting another one.
+  const again = await runHook(box);
+  assert.equal(JSON.parse(again.stdout).systemMessage, urlMessage(box, box.port + 1));
+  assert.equal(readFileSync(box.logFile, 'utf8').split('\n').filter((l) => l.includes('pipeline dashboard:')).length, 1);
+});
+
+test('every candidate port taken: one warning, nothing started', async (t) => {
+  const box = await sandbox(t);
+  const taken = [];
+  for (let p = box.port; p < box.port + 10; p++) {
+    const s = http.createServer((req, res) => { res.writeHead(404); res.end('nope'); });
+    // A port another process already holds counts as taken too.
+    await new Promise((resolve) => { s.once('error', resolve); s.listen(p, '127.0.0.1', resolve); });
+    taken.push(s);
+  }
+  t.after(() => Promise.all(taken.map((s) => new Promise((resolve) => s.close(resolve)))));
   const r = await runHook(box);
   assert.equal(r.code, 0);
-  const out = JSON.parse(r.stdout);
-  assert.match(out.systemMessage, /in use/);
-  assert.match(out.systemMessage, new RegExp(`${box.port}`));
+  assert.match(JSON.parse(r.stdout).systemMessage, new RegExp(`ports ${box.port}-${box.port + 9} are all in use`));
   assert.equal(existsSync(box.pidFile), false);
-  assert.equal(existsSync(box.logFile), false);
 });
+
+test('classify: a server reporting this store is mine, another store is other, a missing checkout is stale', async () => {
+  const { classify } = await hookModule();
+  const store = mkdtempSync(path.join(tmpdir(), 'classify-'));
+  t_cleanup.push(store);
+  assert.equal(classify({ state: 'ok', root: DASH, store }, store), 'mine');
+  assert.equal(classify({ state: 'ok', root: DASH, store: path.join(store, 'x') }, store), 'other');
+  assert.equal(classify({ state: 'ok', root: '/definitely/missing', store }, store), 'stale');
+  assert.equal(classify({ state: 'free', root: null, store: null }, store), 'free');
+  assert.equal(classify({ state: 'foreign', root: null, store: null }, store), 'foreign');
+});
+const t_cleanup = [];
+after(() => { for (const d of t_cleanup) rmSync(d, { recursive: true, force: true }); });
 
 test('errors never fail the session: invalid port or unusable store exit 0 silently', async (t) => {
   const box = await sandbox(t);
@@ -369,9 +416,7 @@ test('a server whose command line is another checkout\'s server.mjs is never sto
   const other = spawnFakeServer(box, '/definitely/missing/checkout', path.join(box.root, 'other'));
   assert.ok(await waitFor(() => healthOk(box.port)), 'stand-in did not come up');
   writeFileSync(box.pidFile, JSON.stringify({ pid: other.pid, port: box.port, root: '/definitely/missing/checkout' }));
-  const r = await runHook(box);
-  assert.equal(r.code, 0);
-  assert.match(JSON.parse(r.stdout).systemMessage, /in use/);
+  await assertStartedOnNextPort(box, await runHook(box));
   assert.ok(isAlive(other), 'the foreign server must stay alive');
 });
 
@@ -396,7 +441,6 @@ test('a server running from a path that merely ends with the recorded root is no
   const other = spawnFakeServer(box, missingRoot, lookalike);
   assert.ok(await waitFor(() => healthOk(box.port)), 'stand-in did not come up');
   writeFileSync(box.pidFile, JSON.stringify({ pid: other.pid, port: box.port, root: missingRoot }));
-  const r = await runHook(box);
-  assert.match(JSON.parse(r.stdout).systemMessage, /in use/);
+  await assertStartedOnNextPort(box, await runHook(box));
   assert.ok(isAlive(other));
 });

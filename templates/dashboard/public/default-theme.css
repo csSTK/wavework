@@ -22,6 +22,7 @@
   --control-height: 2.25rem;
   --shell-bar-height: 3.25rem;
   --page-width-wide: 72rem;
+  --page-width-detail: 90rem;
   --content-narrow: 40rem;
   --focus-offset: 2px;
   --z-sticky: 10;
@@ -58,6 +59,17 @@
   --color-warn: #8a5a00; --color-warn-soft: #fbefd5; --color-warn-solid: #d9930d;
   --color-bad: #b3261e;  --color-bad-soft: #fbe4e2;  --color-bad-solid: #d64034;
   --color-info: #1f5f99; --color-info-soft: #deedfa; --color-info-solid: #2f84cf;
+  /* Status icons of stages, beads and runs (GitHub Actions style); --color-on-status draws the check or cross. */
+  --color-status-success: var(--color-ok-solid);
+  --color-status-failure: var(--color-bad-solid);
+  --color-status-running: var(--color-warn-solid);
+  --color-status-idle: var(--color-text-subtle);
+  --color-on-status: #ffffff;
+  --size-icon: 1rem;
+  --size-sidebar: 16rem;
+  --size-stage: 13rem;
+  --size-connector: 1.25rem;
+  --duration-spin: 1s;
 }
 
 @media (prefers-color-scheme: dark) {
