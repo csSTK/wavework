@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.1] - 2026-11-14
+
+### Removed
+
+- README: the comparison section with another tool.
+
 ## [0.3.0] - 2026-11-14
 
 ### Fixed
@@ -62,9 +68,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Agent, skill and script templates: the implementer agents (one file per implementer model), the `text-to-task` and `watch-ci` skills and `red-green-check.sh` with its test; `src/targets.mjs` maps every template to its `.claude/` target. `red-green-check.sh` needs only bash, git and node, discovers Maven and Vitest tests and prints `SKIP <area>: unsupported` for other areas.
 - `wavework init` and `wavework update`: render the templates into `.claude/`, record a sha256 lock (`docs/lock.md`), keep locally edited files and write `<file>.wavework-new`, restore lost exec bits, merge hooks into `.claude/settings.json` without touching foreign entries, `--dry-run`, exit code 2 when files need review. Every path stays inside `.claude/` (no `..`, absolute paths or symlinks, also for a tampered lock). Config path fields (`checks[].dir`, `whenPaths`, `codeMap.path`, `uiSkill.appliesTo`) must be repo-relative; `.` means the whole repo.
 - Pipeline dashboard: `init`/`update` install the recorder, hooks, server and UI into `.claude/wavework/dashboard/` (committed, works in worktrees without `node_modules`) and register its `SessionStart`/`SubagentStop` hooks while `dashboard.enabled`; `dashboard.port` and `dashboard.tokensFile` in the config; `wavework dashboard` starts the server; the skills' `Record:` lines follow the config; neutral default theme; disabling removes its hooks and unedited runtime files on `update` (`docs/dashboard.md`).
-- README: install, daily use, configuration, upgrading, dashboard and a sourced comparison with Sous Factory. `scripts/smoke.sh` runs the README commands against the packed package in CI (`smoke` job), and `test/readme.test.mjs` fails when a README command has no smoke step or test.
+- README: install, daily use, configuration, upgrading, and dashboard. `scripts/smoke.sh` runs the README commands against the packed package in CI (`smoke` job), and `test/readme.test.mjs` fails when a README command has no smoke step or test.
 
-[Unreleased]: https://github.com/csSTK/wavework/compare/v0.3.0...HEAD
+[Unreleased]: https://github.com/csSTK/wavework/compare/v0.3.1...HEAD
+[0.3.1]: https://github.com/csSTK/wavework/releases/tag/v0.3.1
 [0.3.0]: https://github.com/csSTK/wavework/releases/tag/v0.3.0
 [0.2.0]: https://github.com/csSTK/wavework/releases/tag/v0.2.0
 [0.1.2]: https://github.com/csSTK/wavework/releases/tag/v0.1.2

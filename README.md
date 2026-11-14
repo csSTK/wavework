@@ -116,26 +116,6 @@ npx wavework dashboard
 
 It listens on `127.0.0.1` at port 4690 by default (`dashboard.port`). Set `dashboard.enabled` to `false` and run `update` to remove it. Details are in [docs/dashboard.md](docs/dashboard.md).
 
-## Comparison with Sous Factory
-
-[Sous Factory](https://sousfactory.com/) (MIT, npm package `sous-factory`) is another tool for running beads tasks through agents. The wavework author trialled Sous Factory on Shipir, the project wavework was ported from, against Shipir's own `/next-task*` pipeline. The numbers below are copied from that trial's handoff notes (`docs/sous-handoff.md` in Shipir, a private repository, so they are cited by run rather than linked). They measure Shipir's pipeline, not wavework; wavework is a port of that pipeline and has not been measured as a whole.
-
-| Run (source) | Tool | Bead | Wall clock | Agent time | Cost | Review |
-|---|---|---|---|---|---|---|
-| 1 (Run 1, setup 2026-10-24, run date not recorded) | Sous | `shipr-hae` | ~36 min | ~5.5 min | not measured | diff review, then 3 whole-branch rounds |
-| 2 (Run 2, date not recorded) | `/next-task-beads` | `shipr-8qd` | ~5 min | API time 2m28s | $1.34 Sonnet, plus $0.56 for a first attempt on Opus that was refused | 1 round, PASS |
-| 3 (Run 3, 2026-11-13) | Sous 0.8.0 | `shipr-kipv.2` | ~28 min | ~2.5 min | $1.37 | review-full, 1 round |
-
-Most of the wall clock in both Sous runs was the project's full checks (Maven `verify`), not agent work: Run 1 had about 30 of its ~36 minutes in checks ("~30 min was full Maven `verify` after every step"), and Run 3's implement step had 25m15s of checks out of 26m08s (agent 53s), so about 25 of its ~28 minutes. The wall-clock gap therefore mostly reflects when and how often the full checks run, not agent speed. Run 2's source gives no split between checks and agent time. Run 3's cost is listed per step (check-issue $0.45, plan $0.24, implement $0.27, review $0.22, review-full $0.19); Run 2's source gives one total of $1.34 without a per-step breakdown, so whether it includes planning or orchestration is unknown. The handoff's conclusion was to keep the `/next-task*` pipeline and to take over the one thing Sous did better, a check that new tests fail on the old code. wavework ships that check as `red-green-check.sh`.
-
-Limitations of this comparison:
-
-- One run per tool, on different beads of unrecorded size. The numbers are anecdotes, not a benchmark.
-- Sous Run 1 hit a hard-coded `main` branch that cost a stop and a second attempt, and Run 1 was on an earlier Sous version (not recorded). Run 3 used Sous 0.8.0.
-- Run 1 has no cost, so the two tools' costs are compared only for Runs 2 and 3.
-- The review results compare different review designs, and the Run 2 red-before-green check was done by hand afterwards.
-- No neutral party: the same person ran the Sous trial, built the pipeline it was compared with (Shipir's, which wavework was ported from) and made the decision. The project is a Java and React codebase; other repositories would give other numbers.
-
 ## Development
 
 `npm test` runs the unit tests (`node:test`, no dependencies). `bash scripts/smoke.sh` packs the package and runs the commands from this README against it in two temporary repositories; CI runs it on Node 22 and 24. The dashboard's server, hooks and UI are tested in `test/dashboard/`; `test/dashboard-cli.test.mjs` covers `wavework dashboard`.
