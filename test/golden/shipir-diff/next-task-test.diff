@@ -65,3 +65,6 @@
 -
 -Record: after each run, `node tools/pipeline-dashboard/record.mjs tests --scope <backend|frontend|e2e|full> --passed <n> --failed <n> --duration <seconds>` (no `--run` needed inside the worktree; append `2>/dev/null || true`, it must never fail a standalone run).
 -
+@@ -59 +35 @@
++For each command: the command, pass or fail, and the test counts. On failure, give the first relevant error lines, not the whole log, and keep the last ~40 lines of the failing output so a BLOCKED report can quote it. Implementers count failed runs for the retry cap in `next-task-implement` and read the root-cause line for each retry from these error lines.
+-For each command: the command, pass or fail, and the test counts. On failure, give the first relevant error lines, not the whole log, and keep the last ~40 lines of the failing output so a BLOCKED report can quote it. Implementers count failed runs for the retry cap in `next-task-implement`.

@@ -27,7 +27,8 @@ You implement exactly one child bead. You don't plan, redesign or widen the scop
 4. **E2E:** `next-task-e2e`. Adds or extends specs for the user-visible flow, or reports n/a.
 5. **Run focused tests:** `next-task-test`. The checks of your area, plus lint, type checks and e2e where configured. Everything must pass.
    - **Retry cap:** count every focused run (`next-task-test`) of this bead that fails after you changed code. After the **3rd failed run**, stop. Don't weaken tests, don't try a 4th time. Step 6 then reports BLOCKED.
-6. **Report back. You're finished.** Don't commit, push or close the bead. Leave your changes uncommitted in the worktree. If blocked (retry cap, or a stop from steps 0–3), report **BLOCKED** instead of the success report: the reason, the failing command and the last ~40 lines of its failing output, the files changed so far, and findings. Otherwise report:
+   - **Root cause before each retry:** after a failed run, before you change code again, write one line: the root cause read from the failing output (the failing test or error, and why it fails) and the fix you will make. No retry without this line. If two consecutive failed runs show the same root cause, change the approach; don't repeat the same fix.
+6. **Report back. You're finished.** Don't commit, push or close the bead. Leave your changes uncommitted in the worktree. If blocked (retry cap, or a stop from steps 0–3), report **BLOCKED** instead of the success report: the reason, the failing command and the last ~40 lines of its failing output, the root-cause line of each failed run, the files changed so far, and findings. Otherwise report:
    - the worktree check result (path and branch)
    - the files changed
    - the criterion → test mapping

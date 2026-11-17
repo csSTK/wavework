@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.2] - 2026-11-17
+
+### Changed
+
+- Implementer retries are no longer blind: after a failed focused run and before changing code again, the implementer writes one line with the root cause read from the failing output and the fix it will make; if two consecutive failed runs show the same root cause it changes the approach. The 3-run retry cap is unchanged, and a BLOCKED report now lists the root-cause line of each failed run (`next-task-implement`, `next-task-test`).
+- The reviewer reads the diff first (`git diff -U10`) and reads more of a changed file only where the diff isn't enough, with line ranges or grep; whole files only when they are small or mostly rewritten. This keeps the reviewer's context small on large changes, above all in the branch review (`next-task-review`).
+
 ## [0.3.1] - 2026-11-14
 
 ### Removed
@@ -70,7 +77,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Pipeline dashboard: `init`/`update` install the recorder, hooks, server and UI into `.claude/wavework/dashboard/` (committed, works in worktrees without `node_modules`) and register its `SessionStart`/`SubagentStop` hooks while `dashboard.enabled`; `dashboard.port` and `dashboard.tokensFile` in the config; `wavework dashboard` starts the server; the skills' `Record:` lines follow the config; neutral default theme; disabling removes its hooks and unedited runtime files on `update` (`docs/dashboard.md`).
 - README: install, daily use, configuration, upgrading, and dashboard. `scripts/smoke.sh` runs the README commands against the packed package in CI (`smoke` job), and `test/readme.test.mjs` fails when a README command has no smoke step or test.
 
-[Unreleased]: https://github.com/csSTK/wavework/compare/v0.3.1...HEAD
+[Unreleased]: https://github.com/csSTK/wavework/compare/v0.3.2...HEAD
+[0.3.2]: https://github.com/csSTK/wavework/releases/tag/v0.3.2
 [0.3.1]: https://github.com/csSTK/wavework/releases/tag/v0.3.1
 [0.3.0]: https://github.com/csSTK/wavework/releases/tag/v0.3.0
 [0.2.0]: https://github.com/csSTK/wavework/releases/tag/v0.2.0

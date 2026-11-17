@@ -19,7 +19,7 @@ Give the agent: the input above and these instructions.
 
 0. Check `<WT>` and branch as in `next-task-implement` step 0. Start every Bash command with `cd <WT> &&`.
 1. `bd show <id>` for the acceptance criteria. **Don't** claim or update the bead.
-2. Read the diff and the changed files. Check:
+2. Read the diff first, with context: `git diff -U10 HEAD` (or `git diff -U10 <range>`). Read untracked files in full. Read more of a changed file only where the diff isn't enough to judge (callers of a changed function, the surrounding class, a test's fixtures), with line ranges or grep, not the whole file. Read the whole file when it is small or the change rewrites most of it. Read whatever the checks below need. Check:
    - every acceptance criterion is met and covered by a meaningful test
    - would it pass on the old code: use the red-green script output (you can't run it read-only). Every `GREEN-ON-OLD` test is must-fix unless the bead is a stated exception (pure refactor/docs/config) or the implementer's report justifies it as a deliberate regression guard. `RED-COMPILE` is accepted. Exit code 2 or no output: ask the orchestrator for a rerun. `UNCHANGED` rows are untouched tests, ignore them. E2E specs are not covered; judge those from the diff (e.g. asserting only on mocks with no real outcome).
    - CLAUDE.md Working Rules, Security, Architecture and Testing rules{{#if uiSkill}} (and the `{{uiSkill.name}}` skill for UI under {{uiPaths}}){{/if}}
@@ -50,7 +50,7 @@ Out-of-scope:
 
 ## Branch review (always)
 
-Run by `next-task-finish` before the push, once per run. Same reviewer, but the input is the whole branch: diff `origin/{{baseBranch}}..HEAD` in `<WT>`, checked against the epic's (or all given beads') description and acceptance criteria as a whole: gaps between children, inconsistent behaviour, missing wiring{{#if codeMap}}{{#if codeMap.folder}} or code map entries under `{{codeMap.path}}/`{{else}} or `{{codeMap.path}}` lines{{/if}}{{/if}}. Same checklist (including the red-green script output) and same output format. One fix round only, no 3-round loop (see `next-task-finish`).
+Run by `next-task-finish` before the push, once per run. Same reviewer, but the input is the whole branch: diff `origin/{{baseBranch}}..HEAD` in `<WT>`, checked against the epic's (or all given beads') description and acceptance criteria as a whole: gaps between children, inconsistent behaviour, missing wiring{{#if codeMap}}{{#if codeMap.folder}} or code map entries under `{{codeMap.path}}/`{{else}} or `{{codeMap.path}}` lines{{/if}}{{/if}}. Same checklist (including the red-green script output) and same output format. This is the biggest diff: read it as in step 2 (`git diff -U10 origin/{{baseBranch}}..HEAD`), with targeted reads only where it isn't enough. One fix round only, no 3-round loop (see `next-task-finish`).
 
 ## Loop (the orchestrator's side)
 
