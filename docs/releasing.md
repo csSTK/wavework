@@ -25,21 +25,33 @@ Requirements, from the npm documentation (checked for version 0.1.0):
 
 `wavework@0.1.0` is already on npm, published manually. The `v0.1.0` tag is a marker for that release. Pushing it runs `publish.yml`, and the workflow then checks the registry with `npm view wavework@0.1.0 version`: when the version exists it skips the publish step and prints a notice (`wavework@0.1.0 already on npm, publish skipped`), so the job stays green. The same applies to any tag whose version is already published. A 404 from the registry means "not published yet" and the publish runs; any other npm error fails the job without publishing.
 
+## Branches
+
+- `dev` is the default branch. All work lands there by pull request; CI (`ci.yml`) runs for pushes to `dev` and pull requests into `dev` only.
+- `prd` is the release branch. It only changes by a pull request from `dev`, merged with a merge commit. Release tags are set on `prd`; `publish.yml` refuses a tag whose commit is not on `prd`.
+
+Repository rulesets (Settings → Rules) protect both branches and the tags, because the repository is public:
+
+- **dev:** pull request required (no approval, since there is one maintainer), the four CI checks `test (22)`, `test (24)`, `smoke (22)`, `smoke (24)` must pass, no force pushes, no deletion. Repository admins may bypass in an emergency.
+- **prd:** pull request required, merge commits only, no force pushes, no deletion. No bypass.
+- **v\* tags:** may be created, never moved or deleted. No bypass.
+
 ## Per release
 
 1. Decide the version (semantic versioning). Update `version` in `package.json`.
 2. In `CHANGELOG.md`, move the entries from `## [Unreleased]` into `## [<version>] - <YYYY-MM-DD>`, keep an empty `## [Unreleased]` above it, and update the link references at the bottom.
 3. Run `npm test` and `bash scripts/smoke.sh` locally, and `npm publish --dry-run` to check the package contents.
-4. Commit the version and changelog change and push `main`.
-5. Wait until CI is green for that commit (`.github/workflows/ci.yml`).
-6. Tag the commit and push the tag:
+4. Commit the version and changelog change on a branch, open a pull request into `dev` and merge it once CI is green (`.github/workflows/ci.yml`).
+5. Open a pull request from `dev` into `prd` and merge it with a merge commit (the only method `prd` allows, so `prd` keeps `dev`'s commits and the next release merges cleanly).
+6. Tag the merge commit on `prd` and push the tag:
 
    ```bash
-   git tag v<version>
+   git fetch origin
+   git tag v<version> origin/prd
    git push origin v<version>
    ```
 
-7. Watch `publish.yml` for the tag. The job fails before publishing if the tag does not equal `v` plus the `package.json` version. It skips the publish when that version is already on npm, and otherwise runs `npm test` and the smoke run before `npm publish --access public`.
+7. Watch `publish.yml` for the tag. The job fails before publishing if the tag does not equal `v` plus the `package.json` version, or if the tagged commit is not on `prd`. It skips the publish when that version is already on npm, and otherwise runs `npm test` and the smoke run before `npm publish --access public`.
 8. Verify the release:
 
    ```bash
@@ -58,5 +70,5 @@ A published version cannot be replaced on npm. If a release is wrong, publish a 
 ## Troubleshooting
 
 - **The Publish step fails although the trusted publisher is set up.** Usually the "Allowed actions" option for direct `npm publish` is off on npmjs.com. Enable it in the package's trusted publisher settings and re-run the publish (`gh run rerun <id>`). Check the other fields too: owner `csSTK`, repository `wavework`, workflow filename `publish.yml`, environment empty.
-- **The tag guard fails.** The tag and `package.json` `version` differ. Delete the tag only if it was never published (`git push origin :refs/tags/v<version>` and `git tag -d v<version>`, with the user's OK), fix the version, and tag again.
+- **The tag guard or the prd check fails.** The tag and `package.json` `version` differ, or the tag is not on `prd`. The tag ruleset forbids deleting tags, so prefer releasing the next version. To reuse the version (it was never published), disable the tag ruleset in Settings → Rules, delete the tag (`git push origin :refs/tags/v<version>` and `git tag -d v<version>`, with the user's OK), enable the ruleset again, fix the cause and tag again.
 - **The publisher expired** (no publish within 2 days of creating it). Delete it on npmjs.com, create it again with the same fields, and publish.

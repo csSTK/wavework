@@ -1,8 +1,12 @@
 name: CI
 
+# Tests run on dev only: pushes to dev and pull requests into dev. prd receives dev's commits
+# by pull request, and publish.yml runs the tests again for a release tag.
 on:
   push:
+    branches: [dev]
   pull_request:
+    branches: [dev]
 
 permissions:
   contents: read
