@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.4.1] - 2026-11-21
+
+### Fixed
+
+- The skills' example bead IDs, branch names, worktree paths and run ids use the repository's own bead prefix (`tracker.idPrefix`, else the repository directory name) instead of Shipir's `shipr-`, and `text-to-task`'s title example is no longer Shipir-specific.
+
 ## [0.4.0] - 2026-11-21
 
 ### Added
@@ -88,7 +94,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Pipeline dashboard: `init`/`update` install the recorder, hooks, server and UI into `.claude/wavework/dashboard/` (committed, works in worktrees without `node_modules`) and register its `SessionStart`/`SubagentStop` hooks while `dashboard.enabled`; `dashboard.port` and `dashboard.tokensFile` in the config; `wavework dashboard` starts the server; the skills' `Record:` lines follow the config; neutral default theme; disabling removes its hooks and unedited runtime files on `update` (`docs/dashboard.md`).
 - README: install, daily use, configuration, upgrading, and dashboard. `scripts/smoke.sh` runs the README commands against the packed package in CI (`smoke` job), and `test/readme.test.mjs` fails when a README command has no smoke step or test.
 
-[Unreleased]: https://github.com/csSTK/wavework/compare/v0.4.0...HEAD
+[Unreleased]: https://github.com/csSTK/wavework/compare/v0.4.1...HEAD
+[0.4.1]: https://github.com/csSTK/wavework/releases/tag/v0.4.1
 [0.4.0]: https://github.com/csSTK/wavework/releases/tag/v0.4.0
 [0.3.2]: https://github.com/csSTK/wavework/releases/tag/v0.3.2
 [0.3.1]: https://github.com/csSTK/wavework/releases/tag/v0.3.1

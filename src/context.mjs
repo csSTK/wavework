@@ -120,16 +120,21 @@ export function buildContext(config, options = {}) {
   const withE2e = checks.filter((a) => a.e2e);
   const titles = config.findings.epicTitles;
   const count = Object.keys(titles).length;
+  // Example bead IDs use the repo's own prefix: tracker.idPrefix, else the repo name (beads' default prefix), else "proj".
+  const prefix = config.tracker?.idPrefix ?? (/^[A-Za-z][A-Za-z0-9-]*$/.test(repoName ?? '') ? `${repoName.toLowerCase()}-` : 'proj-');
+  const epicBranchExample = branch({ prefix: 'epic', unit: `${prefix}yy7`, slug: 'project-skeleton' });
 
   return {
     baseBranch: config.baseBranch,
     repoName: repoName ?? '',
     worktreeExpr: worktreeExpression(worktree.pathPattern, repoName),
-    worktreeExample: fill(worktree.pathPattern, { repo: repoName ?? 'repo', unit: 'shipr-cxk' }),
+    worktreeExample: fill(worktree.pathPattern, { repo: repoName ?? 'repo', unit: `${prefix}cxk` }),
     branchExpr: branch({ prefix: '<prefix>', unit: '<unit-id>', slug: '<slug>' }),
     epicBranch: branch({ prefix: 'epic', unit: '<epic-id>', slug: '<slug>' }),
     branchGlob: branch({ prefix: '<prefix>', unit: '<unit-id>', slug: '*' }),
-    taskBranchExample: branch({ prefix: 'task', unit: 'shipr-hae', slug: 'event-worker-interrupt' }),
+    taskBranchExample: branch({ prefix: 'task', unit: `${prefix}hae`, slug: 'event-worker-interrupt' }),
+    epicBranchExample,
+    runIdExample: branch({ prefix: 'epic', unit: `${prefix}1hxo`, slug: 'pipeline-dashboard' }).replaceAll('/', '.'),
     models,
     orchestrationModelName: models.orchestration.charAt(0).toUpperCase() + models.orchestration.slice(1),
     modelLabelsOr: orList(labels.map((l) => `model:${l}`)),

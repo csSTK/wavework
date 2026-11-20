@@ -38,7 +38,7 @@
 +Run `bd dolt pull` first, so new IDs don't collide with beads another clone already created. If it fails or reports a conflict, stop and report it.
 +
 @@ -71 +75 @@
-+Titles: imperative and specific ("Add a migration that creates the hosts table", not "Hosts DB stuff").
++Titles: imperative and specific ("Add a migration that creates the users table", not "Users DB stuff").
 -Titles: imperative and specific ("Add Flyway migration V2__create_docker_hosts", not "Hosts DB stuff").
 @@ -75 +79 @@
 +Keep it short. Show the tree (`bd list --parent <epic> --pretty`), mention any assumptions you made, list anything you deliberately left out or deferred, and name which children are ready to start. Do not commit. Run `bd dolt push` after creating the beads so other clones see them (on a rejection: `bd dolt pull`, then push again; report if it still fails). `.beads/issues.jsonl` is exported by the next `next-task-finish`.
