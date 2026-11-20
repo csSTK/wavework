@@ -1,0 +1,3 @@
+@@ -13 +13 @@
++2. **Fetch dev and the beads:** `git -C "$MAIN" fetch origin dev`. Never base the branch on the current branch, `HEAD` or the local `dev`. Then `cd "$MAIN" && bd dolt pull`, so the run plans against the beads every other clone has pushed (each clone keeps its own database; they only meet through `bd dolt push`/`pull`). If the pull fails or reports a conflict, stop and report it: don't create or close beads on a database that has diverged.
+-2. **Fetch dev:** `git -C "$MAIN" fetch origin dev`. Never base the branch on the current branch, `HEAD` or the local `dev`.
