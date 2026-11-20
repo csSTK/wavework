@@ -14,6 +14,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Dashboard: an **Agents** section in the run detail shows every agent of the run (orchestrator, implementers, reviewers) with the step it is in right now (e.g. `next-task-test`), how long it has been in that step and running in total, and its model; expand an agent for its steps so far. Click a bead (in the pipeline graph or the Beads table) to see only that bead's agents. The "Now" line names the step too (`rumbo-11y.35 (sonnet) in next-task-test`).
 - A third dashboard hook, `PreToolUse` with matcher `Read|Skill` (`hooks/agent-step.mjs`): when an agent reads or runs a skill inside a run's worktree it records an `agent-step` event with the skill, agent id and type, model and bead. `next-task-implement` records its steps 2–5 (write tests, code, e2e, test) with `agent-step` Record lines. Run `wavework update` to install it.
 
+### Fixed
+
+- Beads stay in sync across clones: `next-task-branch` and `text-to-task` pull before work, `next-task-finish` exports `.beads/issues.jsonl` before the documentation commit and pushes the beads after the git push, `text-to-task` pushes the beads it created.
+
 ## [0.3.2] - 2026-11-17
 
 ### Changed
