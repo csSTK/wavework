@@ -81,7 +81,7 @@ When `rules` is given it replaces the default rules entirely.
 
 `kind` must be `"beads"`, the only supported tracker.
 
-`idPrefix` (optional): the prefix of your bead IDs, with or without the trailing `-` (`"shipr"` for `shipr-abc1`; stored as `shipr-`). Only the code map checker uses it (it must not find bead IDs in code map entries). Without it the checker reads the prefix at run time from `.beads/config.yaml` (an uncommented `issue-prefix:`), else from the first ID in `.beads/issues.jsonl`, and skips the rule when it finds none. Set it when your repo has neither.
+`idPrefix` (optional): the prefix of your bead IDs, with or without the trailing `-` (`"shipr"` for `shipr-abc1`; stored as `shipr-`). The code map checker uses it (it must not find bead IDs in code map entries), and the skills' example IDs and branch names use it (without it: the repository directory name). Without it the checker reads the prefix at run time from `.beads/config.yaml` (an uncommented `issue-prefix:`), else from the first ID in `.beads/issues.jsonl`, and skips the rule when it finds none. Set it when your repo has neither.
 
 ### `codeMap` (optional)
 

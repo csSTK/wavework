@@ -73,7 +73,7 @@ T1=$(bd create "<child title>" -t task -p 2 --parent "$EPIC" -l model:{{models.i
 bd dep add "$T2" "$T1"   # only if T2 really needs T1 first
 ```
 
-Titles: imperative and specific ("Add a migration that creates the hosts table", not "Hosts DB stuff").
+Titles: imperative and specific ("Add a migration that creates the users table", not "Users DB stuff").
 
 ## 5. Report
 

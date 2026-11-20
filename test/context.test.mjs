@@ -26,6 +26,15 @@ test('base branch and worktree expressions follow the patterns', () => {
   assert.equal(c.taskBranchExample, 'task/shipr-hae-event-worker-interrupt');
 });
 
+test('example bead IDs use tracker.idPrefix, else the repo name, else "proj"', () => {
+  assert.equal(shipir({ repoName: 'shipir' }).epicBranchExample, 'epic/shipr-yy7-project-skeleton');
+  assert.equal(shipir({ repoName: 'shipir' }).runIdExample, 'epic.shipr-1hxo-pipeline-dashboard');
+  assert.equal(minimal({ repoName: 'Rumbo' }).taskBranchExample, 'task/rumbo-hae-event-worker-interrupt');
+  assert.equal(minimal({ repoName: 'rumbo' }).worktreeExample, '../rumbo-rumbo-cxk');
+  assert.equal(minimal().worktreeExample, '../repo-proj-cxk');
+  assert.equal(minimal({ repoName: 'my repo' }).epicBranchExample, 'epic/proj-yy7-project-skeleton');
+});
+
 test('without a repo name the worktree expression asks the shell for it', () => {
   assert.equal(minimal().worktreeExpr, '$(dirname "$MAIN")/$(basename "$MAIN")-<unit-id>');
 });
