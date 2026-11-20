@@ -21,6 +21,9 @@ jobs:
       id-token: write
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          # Full history and all branches, so the prd check below can see origin/prd.
+          fetch-depth: 0
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: 24
@@ -33,6 +36,9 @@ jobs:
         env:
           TAG: ${{ github.ref_name }}
         run: test "v$(node -p "require('./package.json').version")" = "$TAG"
+      # Releases come from prd only: the tagged commit must be on the release branch.
+      - name: Check the tagged commit is on prd
+        run: git merge-base --is-ancestor "$GITHUB_SHA" origin/prd || { echo "::error::$GITHUB_SHA is not on prd, not publishing" >&2; exit 1; }
       # A tag can be pushed for a version that is already on npm (the v0.1.0 tag marks the release
       # that was published by hand). Such a version is skipped, not re-published. A 404 means "not
       # published yet"; any other npm error fails the job, so a registry outage never skips a publish.

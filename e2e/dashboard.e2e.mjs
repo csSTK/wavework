@@ -49,6 +49,20 @@ writeRun({ id: 'epic.done-one', kind: 'next-task', units: ['d1'], parent: null, 
 writeRun({ id: 'epic.live-one', kind: 'beads', units: ['l1'], parent: null, branch: 'task/l1', worktree: '/w2', status: 'running', started: T(400), ended: null }, [
   { ts: T(400), type: 'run-start' }, { ts: T(401), type: 'step-start', step: 'plan' },
 ]);
+// A running run with agent steps: the orchestrator, an implementer (hook + Record lines) and a reviewer that ended.
+const NOW = (minAgo) => new Date(Date.now() - minAgo * 60_000).toISOString();
+writeRun({ id: 'epic.agents-one', kind: 'next-task', units: ['ag'], parent: null, branch: 'epic/agents', worktree: '/w3', status: 'running', started: T(390), ended: null }, [
+  { ts: NOW(30), type: 'run-start' },
+  { ts: NOW(29), type: 'agent-step', skill: 'next-task-plan', model: 'claude-opus-5-5' },
+  { ts: NOW(20), type: 'step-start', step: 'wave', wave: 1 },
+  { ts: NOW(20), type: 'child-start', bead: 'ag.1', model: 'sonnet', wave: 1 },
+  { ts: NOW(20), type: 'child-start', bead: 'ag.2', model: 'haiku', wave: 1 },
+  { ts: NOW(19), type: 'agent-step', skill: 'next-task-implement', agentId: 'impl1', agentType: 'implementer-sonnet', model: 'claude-sonnet-5-5', bead: 'ag.1' },
+  { ts: NOW(15), type: 'agent-step', skill: 'next-task-write-tests', bead: 'ag.1' },
+  { ts: NOW(12), type: 'agent-step', skill: 'next-task-review', agentId: 'rev1', agentType: 'implementer-sonnet', model: 'claude-sonnet-5-5', bead: 'ag.2' },
+  { ts: NOW(10), type: 'agent', agentId: 'rev1', bead: 'ag.2', model: 'claude-sonnet-5-5', durationMs: 120000, cost: 0.1 },
+  { ts: NOW(3), type: 'agent-step', skill: 'next-task-test', bead: 'ag.1' },
+]);
 
 const ghRunner = async () => JSON.stringify([
   { name: 'CI', status: 'completed', conclusion: 'success', url: 'https://github.com/x/y/actions/runs/1' },
@@ -69,7 +83,7 @@ try {
   await page.locator('.brand', { hasText: 'e2e-project' }).waitFor(); // project name from /api/info, not a hard-coded one
   const rows = page.locator('[data-testid=run-row]');
   await rows.first().waitFor();
-  assert.equal(await rows.count(), 2);
+  assert.equal(await rows.count(), 3);
   assert.match(await rows.first().innerText(), /task\/l1/);
   assert.match(await rows.first().innerText(), /Running/);
   assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth), true, 'list overflows horizontally');
@@ -118,11 +132,32 @@ try {
   await page.locator('[data-testid=run-detail]').waitFor();
   await page.goBack();
 
+  // Agents: each agent's current step, how long it runs and its model; clicking a bead shows only its agents.
+  await page.goto(`${base}/#/runs/epic.agents-one`);
+  const agents = page.locator('[data-testid=agents]');
+  await agents.locator('[data-testid=agent-lane]').first().waitFor();
+  assert.equal(await agents.locator('[data-testid=agent-lane]').count(), 3);
+  const impl = agents.locator('[data-testid=agent-lane]', { hasText: 'Implementer · ag.1' });
+  const implText = await impl.innerText();
+  assert.match(implText, /now\s*next-task-test · 3m/);
+  assert.match(implText, /Sonnet 5\.5/);
+  assert.match(implText, /next-task-implement[\s\S]*next-task-write-tests/, 'steps listed while running');
+  assert.match(await agents.locator('[data-testid=agent-lane]', { hasText: 'Orchestrator' }).innerText(), /Opus 5\.5/);
+  assert.match(await page.locator('[data-testid=activity]').innerText(), /ag\.1 \(sonnet\) in next-task-test/);
+  await page.locator('[data-testid=pipeline-graph] .bead-link', { hasText: 'ag.2' }).click();
+  await agents.locator('h2', { hasText: 'Agents of ag.2' }).waitFor();
+  assert.equal(await agents.locator('[data-testid=agent-lane]').count(), 1);
+  assert.match(await agents.innerText(), /Reviewer · ag\.2[\s\S]*last\s*next-task-review/);
+  await agents.getByRole('button', { name: 'Show all agents' }).click();
+  await agents.locator('h2', { hasText: /^Agents$/ }).waitFor();
+  assert.equal(await agents.locator('[data-testid=agent-lane]').count(), 3);
+
   // Phone width: no horizontal page scroll, children readable (stacked, not one letter per line).
   await page.setViewportSize({ width: 390, height: 800 });
-  for (const hash of ['#/', '#/runs/epic.done-one']) {
+  for (const hash of ['#/', '#/runs/epic.done-one', '#/runs/epic.agents-one']) {
     await page.goto(`${base}/${hash}`);
     await page.locator(hash === '#/' ? '[data-testid=run-row]' : '[data-testid=child-row]').first().waitFor();
+    if (hash.endsWith('agents-one')) await page.locator('[data-testid=agent-lane]').first().waitFor();
     assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth), true, `${hash} overflows at 390px`);
   }
   const bead = await page.locator('[data-testid=child-row]').first().locator('td').first().boundingBox();

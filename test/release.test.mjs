@@ -97,12 +97,51 @@ test('tag guard fails unless the tag equals v + package.json version', () => {
   assert.notEqual(run(pkg.version).status, 0, 'a tag without the v prefix must fail');
 });
 
+test('ci.yml runs only for pushes to dev and pull requests into dev', () => {
+  const on = onBlock(ci);
+  assert.match(on, /^\s+push:\s*\n\s+branches:\s*\[dev\]\s*$/m, 'push must be limited to dev');
+  assert.match(on, /^\s+pull_request:\s*\n\s+branches:\s*\[dev\]\s*$/m, 'pull_request must be limited to dev');
+  assert.doesNotMatch(on, /tags:/, 'CI must not run for tag pushes (publish.yml tests a release)');
+});
+
+test('publish fetches full history and checks the tagged commit is on prd before publishing', () => {
+  assert.match(publish, /actions\/checkout@\S+[^\n]*\n\s+with:\s*\n(\s+#[^\n]*\n)*\s+fetch-depth:\s*0\s*$/m, 'checkout needs fetch-depth: 0');
+  const guardAt = publish.indexOf('git merge-base --is-ancestor "$GITHUB_SHA" origin/prd');
+  assert.notEqual(guardAt, -1, 'missing the prd check');
+  assert.ok(guardAt < publish.indexOf('run: npm publish --access public'), 'the prd check must run before the publish');
+});
+
+test('prd guard passes for a commit on prd and fails for one that is not', () => {
+  const script = publish.match(/^\s*run:\s*(git merge-base --is-ancestor [^\n]*)$/m)[1];
+  const dir = mkdtempSync(join(tmpdir(), 'wavework-prd-'));
+  try {
+    const git = (...args) => {
+      const r = spawnSync('git', ['-C', dir, '-c', 'user.name=t', '-c', 'user.email=t@t', ...args], { encoding: 'utf8' });
+      assert.equal(r.status, 0, r.stderr);
+      return r.stdout.trim();
+    };
+    git('init', '-q', '-b', 'dev');
+    git('commit', '-q', '--allow-empty', '-m', 'released');
+    const released = git('rev-parse', 'HEAD');
+    git('update-ref', 'refs/remotes/origin/prd', released);
+    git('commit', '-q', '--allow-empty', '-m', 'only on dev');
+    const devOnly = git('rev-parse', 'HEAD');
+    const run = (sha) => spawnSync('bash', ['-c', script], { cwd: dir, env: { ...process.env, GITHUB_SHA: sha }, encoding: 'utf8' });
+    assert.equal(run(released).status, 0, 'a commit on prd must pass');
+    const r = run(devOnly);
+    assert.notEqual(r.status, 0, 'a commit only on dev must fail');
+    assert.match(r.stderr, /is not on prd/);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
 test('CHANGELOG has a section for the current version above the link references, with an empty Unreleased on top', () => {
-  assert.equal(pkg.version, '0.3.2');
+  assert.equal(pkg.version, '0.4.0');
   const unreleased = changelog.indexOf('## [Unreleased]');
-  const released = changelog.indexOf(`## [${pkg.version}] - 2026-11-17`);
+  const released = changelog.indexOf(`## [${pkg.version}] - 2026-11-21`);
   assert.notEqual(unreleased, -1, 'missing ## [Unreleased]');
-  assert.notEqual(released, -1, `missing ## [${pkg.version}] - 2026-11-17`);
+  assert.notEqual(released, -1, `missing ## [${pkg.version}] - 2026-11-21`);
   assert.ok(unreleased < released, '[Unreleased] must come before the release');
   const between = changelog.slice(unreleased + '## [Unreleased]'.length, released);
   assert.doesNotMatch(between, /^### /m, '[Unreleased] must be empty after the cut');

@@ -12,6 +12,7 @@ const BIN = fileURLToPath(new URL('../bin/wavework.mjs', import.meta.url));
 const DASH = '.claude/wavework/dashboard';
 const SESSION_CMD = 'node "$CLAUDE_PROJECT_DIR/.claude/wavework/dashboard/hooks/session-start.mjs"';
 const STOP_CMD = 'node "$CLAUDE_PROJECT_DIR/.claude/wavework/dashboard/hooks/subagent-stop.mjs"';
+const STEP_CMD = 'node "$CLAUDE_PROJECT_DIR/.claude/wavework/dashboard/hooks/agent-step.mjs"';
 
 /** A git repo in a directory with the given name (so the repo name is not "wavework-xxxx"). */
 function namedRepo(name, config) {
@@ -69,16 +70,18 @@ test('init (dashboard on by default): runtime copied, hooks registered, lock lis
   try {
     const r = await cli(['init'], repo);
     assert.equal(r.code, 0, r.stderr);
-    for (const f of ['record.mjs', 'server.mjs', 'pricing.json', 'config.json', 'hooks/session-start.mjs', 'hooks/subagent-stop.mjs', 'public/default-theme.css']) {
+    for (const f of ['record.mjs', 'server.mjs', 'pricing.json', 'config.json', 'hooks/session-start.mjs', 'hooks/subagent-stop.mjs', 'hooks/agent-step.mjs', 'public/default-theme.css']) {
       assert.ok(existsSync(join(repo, DASH, f)), f);
     }
     assert.deepEqual(readJson(repo, `${DASH}/config.json`), { port: 4690, tokensFile: null });
     const settings = readJson(repo, '.claude/settings.json');
     assert.deepEqual(commandsOf(settings, 'SessionStart'), [SESSION_CMD]);
     assert.deepEqual(commandsOf(settings, 'SubagentStop'), [STOP_CMD]);
+    assert.deepEqual(commandsOf(settings, 'PreToolUse'), [STEP_CMD]);
+    assert.equal(settings.hooks.PreToolUse[0].matcher, 'Read|Skill');
     const lock = readJson(repo, '.claude/wavework.lock.json');
     assert.ok(Object.keys(lock.files).includes('wavework/dashboard/record.mjs'));
-    assert.equal(lock.hooks.length, 2);
+    assert.equal(lock.hooks.length, 3);
     // Record lines in the skills point at the installed recorder
     assert.match(readFileSync(join(repo, '.claude/skills/next-task-test/SKILL.md'), 'utf8'), /node \.claude\/wavework\/dashboard\/record\.mjs tests/);
   } finally { cleanup(parent); }
@@ -108,6 +111,7 @@ test('enabled -> disabled -> update removes the hooks and the unedited runtime f
     assert.equal(settings.model, 'x');
     assert.deepEqual(commandsOf(settings, 'SessionStart'), ['bd prime']);
     assert.deepEqual(settings.hooks.SubagentStop, undefined);
+    assert.deepEqual(settings.hooks.PreToolUse, undefined);
     assert.equal(existsSync(join(repo, '.claude/wavework')), false, 'runtime and its empty dirs are gone');
     const lock = readJson(repo, '.claude/wavework.lock.json');
     assert.deepEqual(Object.keys(lock.files).filter((f) => f.startsWith('wavework/')), []);
@@ -141,7 +145,7 @@ test('disabled -> enabled -> update adds the runtime and the hooks', async () =>
     assert.ok(existsSync(join(repo, DASH, 'server.mjs')));
     assert.deepEqual(commandsOf(readJson(repo, '.claude/settings.json'), 'SessionStart'), [SESSION_CMD]);
     assert.match(readFileSync(join(repo, '.claude/skills/next-task-test/SKILL.md'), 'utf8'), /record\.mjs/);
-    assert.equal(readJson(repo, '.claude/wavework.lock.json').hooks.length, 2);
+    assert.equal(readJson(repo, '.claude/wavework.lock.json').hooks.length, 3);
   } finally { cleanup(parent); }
 });
 

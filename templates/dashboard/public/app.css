@@ -202,6 +202,24 @@ tr[data-clickable]:active { background: var(--color-surface-sunken); }
 .bead-id { font-weight: var(--weight-medium); }
 [data-col='model'] { white-space: nowrap; }
 
+/* Beads open their agents; the Agents section lists one expandable lane per agent with its steps. */
+.bead-link { padding: 0; border: 0; background: none; color: var(--color-accent); font-weight: var(--weight-medium); text-align: left; cursor: pointer; }
+.bead-link:hover { text-decoration: underline; }
+.bead-link[aria-pressed='true'] { text-decoration: underline; text-decoration-thickness: var(--border-width-thick); }
+#agents { scroll-margin: var(--space-6); }
+.lanes { display: grid; gap: var(--space-2); }
+.lane { border: var(--border-width) solid var(--color-border); border-radius: var(--radius-sm); }
+.lane[data-running] { border-color: var(--color-status-running); }
+.lane > summary { display: grid; grid-template-columns: auto minmax(0, 1fr) auto auto; grid-template-areas: 'icon who model time' 'icon step step step'; align-items: center; gap: var(--space-1) var(--space-3); padding: var(--space-3); cursor: pointer; list-style: none; }
+.lane > summary::-webkit-details-marker { display: none; }
+.lane > summary > .icon { grid-area: icon; align-self: start; }
+.lane-who { grid-area: who; display: grid; min-width: 0; overflow-wrap: anywhere; }
+.lane > summary > .badge { grid-area: model; }
+.lane > summary > .num { grid-area: time; }
+.lane-step { grid-area: step; overflow-wrap: anywhere; }
+.lane-steps { padding: 0 var(--space-3) var(--space-3); }
+.lane-steps li { grid-template-columns: auto minmax(0, 1fr) auto auto; }
+
 .annotations { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--space-3); }
 .annotations li { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: var(--space-3); align-items: start; padding: var(--space-3); border-radius: var(--radius-sm); background: var(--color-warn-soft); }
 .annotations li[data-level='failure'] { background: var(--color-bad-soft); }
@@ -221,6 +239,8 @@ tr[data-clickable]:active { background: var(--color-surface-sunken); }
   .run { grid-template-columns: auto minmax(0, 1fr); padding: var(--space-3) var(--space-4); }
   .run[data-nested] { padding-left: calc(var(--space-4) + var(--space-5)); }
   .run-side { grid-column: 2; justify-items: start; text-align: left; }
+  .lane > summary { grid-template-columns: auto auto minmax(0, 1fr); grid-template-areas: 'icon who who' 'icon model time' 'icon step step'; }
+  .lane > summary > .num { justify-self: start; }
 }
 
 @media (prefers-reduced-motion: reduce) {

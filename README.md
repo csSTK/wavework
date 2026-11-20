@@ -51,7 +51,7 @@ For each file `init` would write that already exists: identical content is kept 
 - `.claude/agents/implementer-<model>.md`: one implementer agent per model in the config (the default config gives `implementer-sonnet` and `implementer-haiku`)
 - `.claude/scripts/red-green-check.sh` and its test, plus `.claude/scripts/code-map-check.mjs` with a folder code map
 - `.claude/wavework/dashboard/`: the pipeline dashboard (with `dashboard.enabled`, the default)
-- `.claude/settings.json`: the dashboard's two hooks, merged into your settings without touching other entries
+- `.claude/settings.json`: the dashboard's three hooks, merged into your settings without touching other entries
 - `.claude/wavework.json`: your configuration (never overwritten)
 - `.claude/wavework.lock.json`: the hashes of what wavework wrote (see [docs/lock.md](docs/lock.md))
 
@@ -120,7 +120,7 @@ It listens on `127.0.0.1` at port 4690 by default (`dashboard.port`). Set `dashb
 
 `npm test` runs the unit tests (`node:test`, no dependencies). `bash scripts/smoke.sh` packs the package and runs the commands from this README against it in two temporary repositories; CI runs it on Node 22 and 24. The dashboard's server, hooks and UI are tested in `test/dashboard/`; `test/dashboard-cli.test.mjs` covers `wavework dashboard`.
 
-Releases are published to npm by `.github/workflows/publish.yml` when a `v*` tag is pushed, using npm trusted publishing (no npm token). The maintainer steps are in [docs/releasing.md](docs/releasing.md).
+Work goes into `dev` (the default branch) by pull request; releases are merged from `dev` into `prd` and published to npm by `.github/workflows/publish.yml` when a `v*` tag on `prd` is pushed, using npm trusted publishing (no npm token). The maintainer steps are in [docs/releasing.md](docs/releasing.md).
 
 ## License
 

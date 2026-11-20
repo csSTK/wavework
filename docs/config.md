@@ -110,7 +110,7 @@ Maps a finding category (any key) to the title of its standing epic. Defaults: `
 
 ### `dashboard`
 
-The pipeline dashboard (see [dashboard.md](dashboard.md)). `enabled: false` leaves out the `Record:` lines in the skills, the runtime in `.claude/wavework/dashboard/` and its two hooks; `update` removes what an earlier run installed. `port`: where the server listens (127.0.0.1 only). `tokensFile`: a CSS file of your design tokens (no leading `/`, no `..` or `.` segments, no backslash, must end in `.css`) that the UI loads after its neutral default theme. Example: `{ "port": 4690, "tokensFile": "frontend/src/shared/styles/tokens.css" }`.
+The pipeline dashboard (see [dashboard.md](dashboard.md)). `enabled: false` leaves out the `Record:` lines in the skills, the runtime in `.claude/wavework/dashboard/` and its three hooks; `update` removes what an earlier run installed. `port`: where the server listens (127.0.0.1 only). `tokensFile`: a CSS file of your design tokens (no leading `/`, no `..` or `.` segments, no backslash, must end in `.css`) that the UI loads after its neutral default theme. Example: `{ "port": 4690, "tokensFile": "frontend/src/shared/styles/tokens.css" }`.
 
 ## API
 
