@@ -630,7 +630,7 @@ test('templates see the repo directory name: worktree paths use it', async () =>
   try {
     const r = await cli(['init'], repo, withFixture(fx));
     assert.equal(r.code, 0, r.stderr);
-    assert.equal(readFileSync(join(repo, '.claude/w.md'), 'utf8'), '../shipir-like-shipr-cxk\n');
+    assert.equal(readFileSync(join(repo, '.claude/w.md'), 'utf8'), '../shipir-like-shipir-like-cxk\n');
   } finally { cleanup(parent, fx.dir); }
 });
 

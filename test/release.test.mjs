@@ -137,7 +137,7 @@ test('prd guard passes for a commit on prd and fails for one that is not', () =>
 });
 
 test('CHANGELOG has a section for the current version above the link references, with an empty Unreleased on top', () => {
-  assert.equal(pkg.version, '0.4.0');
+  assert.equal(pkg.version, '0.4.1');
   const unreleased = changelog.indexOf('## [Unreleased]');
   const released = changelog.indexOf(`## [${pkg.version}] - 2026-11-21`);
   assert.notEqual(unreleased, -1, 'missing ## [Unreleased]');

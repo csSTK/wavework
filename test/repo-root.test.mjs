@@ -62,12 +62,12 @@ test('init and update in a linked worktree with another name render the main che
     const name = basename(realpathSync(w.repo));
     let r = await cli(['init'], w.worktree, withFixture(fx));
     assert.equal(r.code, 0, r.stderr);
-    assert.equal(rendered(w.worktree), `name=${name} wt=../${name}-shipr-cxk\n`);
+    assert.equal(rendered(w.worktree), `name=${name} wt=../${name}-${name.toLowerCase()}-cxk\n`);
     assert.ok(!existsSync(join(w.repo, '.claude/skills')), 'nothing is written to the main checkout');
     fx.set('p.md', 'name={{repoName}} wt={{worktreeExample}} v2\n');
     r = await cli(['update'], w.worktree, withFixture(fx));
     assert.equal(r.code, 0, r.stderr);
-    assert.equal(rendered(w.worktree), `name=${name} wt=../${name}-shipr-cxk v2\n`);
+    assert.equal(rendered(w.worktree), `name=${name} wt=../${name}-${name.toLowerCase()}-cxk v2\n`);
   } finally { w.done(); cleanup(fx.dir); }
 });
 
@@ -80,7 +80,7 @@ test('init and update from a subdirectory operate on the repository root', async
     const name = basename(realpathSync(repo));
     let r = await cli(['init'], sub, withFixture(fx));
     assert.equal(r.code, 0, r.stderr);
-    assert.equal(rendered(repo), `name=${name} wt=../${name}-shipr-cxk\n`);
+    assert.equal(rendered(repo), `name=${name} wt=../${name}-${name.toLowerCase()}-cxk\n`);
     assert.ok(!existsSync(join(sub, '.claude')), 'no .claude in the subdirectory');
     fx.set('p.md', 'v2 {{repoName}}\n');
     r = await cli(['update'], sub, withFixture(fx));
@@ -94,7 +94,7 @@ test('init --adopt in a worktree subdirectory adopts identical files and locks t
   const fx = probe();
   try {
     const name = basename(realpathSync(w.repo));
-    put(w.worktree, '.claude/skills/p/SKILL.md', `name=${name} wt=../${name}-shipr-cxk\n`);
+    put(w.worktree, '.claude/skills/p/SKILL.md', `name=${name} wt=../${name}-${name.toLowerCase()}-cxk\n`);
     mkdirSync(join(w.worktree, 'pkg'), { recursive: true });
     const r = await cli(['init', '--adopt'], join(w.worktree, 'pkg'), withFixture(fx));
     assert.equal(r.code, 0, r.stderr);
@@ -144,8 +144,8 @@ test('next-task-branch renders identically from the main checkout and a differen
     }
     assert.equal(read(w.worktree), read(w.repo));
     assert.doesNotMatch(read(w.worktree), /acme-feature-x/);
-    const example = read(w.worktree).match(/\.\.\/(\S+)-shipr-cxk/);
-    assert.equal(example?.[1], basename(realpathSync(w.repo)), 'the worktree example names the main checkout');
+    const main = basename(realpathSync(w.repo));
+    assert.ok(read(w.worktree).includes(`../${main}-${main.toLowerCase()}-cxk`), 'the worktree example names the main checkout and its bead prefix');
   } finally { w.done(); cleanup(sub); }
 });
 
