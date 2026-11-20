@@ -1,6 +1,6 @@
 # Pipeline dashboard
 
-Installed by `wavework init` / `wavework update` into `.claude/wavework/dashboard/` (managed by the lock file: do not edit, change `dashboard` in `.claude/wavework.json` instead). Dev tooling (Node >= 22, built-ins only, no node_modules) that records and shows `/next-task*` runs. This folder holds the recorder (`record.mjs`), the SubagentStop and SessionStart hooks (`hooks/`), the server (`server.mjs`, `lib/`), the UI (`public/`) and `config.json` (port and tokensFile, written from the config).
+Installed by `wavework init` / `wavework update` into `.claude/wavework/dashboard/` (managed by the lock file: do not edit, change `dashboard` in `.claude/wavework.json` instead). Dev tooling (Node >= 22, built-ins only, no node_modules) that records and shows `/next-task*` runs. This folder holds the recorder (`record.mjs`), the SubagentStop, SessionStart and PreToolUse hooks (`hooks/`), the server (`server.mjs`, `lib/`), the UI (`public/`) and `config.json` (port and tokensFile, written from the config).
 
 ## Store
 
@@ -35,6 +35,7 @@ Every event has `ts` (ISO), `type` and `run`, plus:
 | `tests` | `scope`, `passed`, `failed`, `duration` |
 | `finding` | `bead` (id of the finding bead) |
 | `agent` | `agentId`, `agentType`, `bead` (from the first user prompt, after the word "bead"; absent if none), `model`, `durationMs`, `tokensIn`, `tokensOut`, `tokensCacheRead`, `tokensCacheWrite`, `cost` (estimate); written by the SubagentStop hook |
+| `agent-step` | `skill` (the step the agent enters), `agentId`, `agentType`, `model`, `bead` (all optional); written by the PreToolUse hook, and by `next-task-implement`'s Record lines (`--bead`, `--skill` only) |
 
 Other keys passed on the command line are stored as given, except `ts`, `type` and `run`, which are always set by the recorder.
 
@@ -49,6 +50,14 @@ The `agent` events come from the SubagentStop hook (`hooks/subagent-stop.mjs`, r
 ## Importing
 
 `record.mjs` exports `resolveStoreDir`, `findRunByCwd`, `recordEvent`, `readRun`, `listRuns`, `parseArgs`, `main`, `EVENT_TYPES`, `RUN_ID`, so the server and hooks reuse store resolution and lookup.
+
+## Agent steps (PreToolUse hook)
+
+`hooks/agent-step.mjs` is registered for `PreToolUse` with matcher `Read|Skill`. When a tool call reads `<dir>/.claude/skills/<name>/SKILL.md` (or the Skill tool runs `<name>`), it appends an `agent-step` event with `skill: <name>` to the running run whose worktree contains `<dir>` (else the hook's `cwd`); nothing else is recorded and other reads exit at once, before any git call. Claude Code passes `agent_id`/`agent_type` when the call comes from a sub-agent. The model comes from the sub-agent's `<session>/subagents/agent-<id>.meta.json` (`model`), else the last assistant message of its transcript (`agent-<id>.jsonl`); for the session itself, from the last assistant message of `transcript_path` (only the last 256 KB are read). The bead is taken from the sub-agent's first prompt like in the SubagentStop hook. The hook always exits 0 and prints nothing.
+
+Agents do not always re-read every step's skill, so `next-task-implement` also records its steps 2–5 with `agent-step --bead <id> --skill <name>`.
+
+`timeline.agents` (in `GET /api/runs/:id`) groups these events into one lane per agent: `key` (`main` for the orchestrator, the agent id, or `bead:<id>` for an implementer known only from Record lines), `role` (`orchestrator`, `implementer`, `reviewer` = a sub-agent whose first step is `next-task-review`, `agent`), `agentId`, `agentType`, `model` (else the bead's `child-start` model), `bead`, `start`, `end`, `durationMs`, `running`, `cost`, `steps` (`skill`, `start`, `end`, `durationMs`; a re-read of the current skill is not a new step) and `current` (the open last step while it runs). A sub-agent ends at its `agent` event and runs again on a later `agent-step` (resumed with SendMessage); a `bead:` lane ends at the bead's `child-end`; every open lane ends with the run. The orchestrator's current step is the last skill it read.
 
 ## SessionStart hook
 
@@ -89,7 +98,7 @@ Open `http://127.0.0.1:4690/` (your port) after starting the server. Plain HTML/
 
 - Stages (`pipelineView` in `format.mjs`, pure): Plan (sub-step Deps), one stage per wave (with its beads), Finish (sub-steps Review, Push), CI; a batch has one stage per member run, plus queued units not started yet. Statuses as in GitHub Actions: `success`, `failure`, `in_progress`, `queued` (not reached, run still running), `skipped` (not reached, run ended), `cancelled`, `unknown`. A wave with a blocked bead fails; a blocked or failed run fails the stage it stopped in. Problems: failed tests, `FIX` reviews (a warning once a later round passed or while the run runs, else a failure), blocked/failed beads, `redBeforeGreen exception`, where a blocked run stopped, failed CI workflows; each is tied to a stage (bead events to the bead's wave, others by time window).
 - `#/` lists all runs: running first, then newest; batch members are nested under their batch. Each row has a status icon, the stage strip, what the agents are doing now (running runs), the time since the last event (marked quiet after 20 minutes), failure and warning counts, duration, cost and CI. It refreshes on every `run-changed` SSE event, no reload; a run that appears in the store shows up at once. The header shows `Live` or `Reconnecting`.
-- `#/runs/<id>` is a deep link to a run: stage sidebar, a "Now" banner while running, header stats, the pipeline graph (stage cards with sub-steps and beads), Annotations (problems), beads (model, wave, duration, tokens, cost, result, review verdict and rounds, red-before-green), reviews, tests, findings filed and CI links.
+- `#/runs/<id>` is a deep link to a run: stage sidebar, a "Now" banner while running, header stats, the pipeline graph (stage cards with sub-steps and beads), Agents (one expandable lane per agent: role and bead, model, the step it is in now with its live duration, total time, and its steps; clicking a bead id in the graph or the Beads table shows only that bead's agents), Annotations (problems), beads (model, wave, duration, tokens, cost, result, review verdict and rounds, red-before-green), reviews, tests, findings filed and CI links.
 - Costs are estimates (marked as such); an unknown cost is shown as `—`, never `$0.00`.
 - The UI fetches `/api/runs/:id` per run (the list endpoint has no events or `ci`): all once, then only runs that changed, are running, or whose CI is pending (polled every 10 s).
 - Untrusted strings are rendered with `textContent`; CI links must be http(s).

@@ -13,7 +13,7 @@ import { fileURLToPath } from 'node:url';
 export const STORE_ENV = 'WAVEWORK_PIPELINE_STORE';
 export const EVENT_TYPES = [
   'run-start', 'run-end', 'step-start', 'step-end', 'child-start', 'child-end',
-  'review', 'tests', 'finding', 'agent',
+  'review', 'tests', 'finding', 'agent', 'agent-step',
 ];
 const RUN_KINDS = ['next-task', 'beads', 'batch'];
 const RUN_STATUSES = ['running', 'done', 'blocked', 'failed'];

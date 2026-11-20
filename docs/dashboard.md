@@ -1,10 +1,10 @@
 # Pipeline dashboard
 
-A live view of every `/next-task*` run, laid out like a GitHub Actions run: each run's stages (plan, waves, finish, CI) with their status, what the agents are doing right now, and where problems happened (failed tests, review rounds asking for fixes, blocked beads, failed CI), plus sub-agents with model, duration, tokens and estimated cost. Plain Node (built-ins only), no build, no database.
+A live view of every `/next-task*` run, laid out like a GitHub Actions run: each run's stages (plan, waves, finish, CI) with their status, what the agents are doing right now (each agent's current step, how long it has run and its model; click a bead to see its agents), and where problems happened (failed tests, review rounds asking for fixes, blocked beads, failed CI), plus sub-agents with model, duration, tokens and estimated cost. Plain Node (built-ins only), no build, no database.
 
 ## What gets installed
 
-With `dashboard.enabled` (the default), `wavework init` and `update` write the runtime to `.claude/wavework/dashboard/` (recorder, server, UI, hooks, `config.json`) and register two hooks in `.claude/settings.json`: `SessionStart` (starts the server if none runs and prints its URL) and `SubagentStop` (records each sub-agent's tokens and cost). The skills then contain `Record:` lines that call `node .claude/wavework/dashboard/record.mjs`. The runtime is a committed copy, so it works in git worktrees without `node_modules`: commit `.claude/`.
+With `dashboard.enabled` (the default), `wavework init` and `update` write the runtime to `.claude/wavework/dashboard/` (recorder, server, UI, hooks, `config.json`) and register three hooks in `.claude/settings.json`: `SessionStart` (starts the server if none runs and prints its URL), `SubagentStop` (records each sub-agent's tokens and cost) and `PreToolUse` with matcher `Read|Skill` (records which skill, that is which pipeline step, an agent enters, with its model). The skills then contain `Record:` lines that call `node .claude/wavework/dashboard/record.mjs`. The runtime is a committed copy, so it works in git worktrees without `node_modules`: commit `.claude/`.
 
 Open the URL the session prints (at every session start), or run `npx wavework dashboard` in the repository (foreground; it starts the repo's installed server and fails with a clear message when the dashboard is disabled or not installed).
 
