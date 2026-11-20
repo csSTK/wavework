@@ -3,6 +3,7 @@ import { test } from 'node:test';
 import {
   ciBadge, formatCost, formatDuration, formatTokens, findingsOf, parseRoute, relativeTime,
   reviewsByBead, resultBadge, safeHref, formatStarted, tokensOf, stepLabel, reviewRows, sortRuns, statusBadge, totalTokens, pipelineView,
+  agentLabel, agentLanes,
 } from '../../templates/dashboard/public/format.mjs';
 import { deriveTimeline } from '../../templates/dashboard/lib/derive.mjs';
 
@@ -225,4 +226,57 @@ test('pipelineView: a batch has one stage per epic, units not started yet are qu
   assert.deepEqual(brief(v), ['member:epic.a:failure', 'member:epic.b:in_progress', 'unit:c:queued']);
   assert.equal(v.activity, 'Working on b');
   assert.deepEqual(v.problems.map((p) => p.title), ['a blocked']);
+});
+
+test('deriveTimeline agents: one lane per agent with its steps, current step, model and bead', () => {
+  const run = { id: 'r', kind: 'next-task', status: 'running', started: '2026-11-14T10:00:00.000Z' };
+  const events = [
+    ev(0, 'agent-step', { skill: 'next-task-branch', model: 'claude-opus-5-5' }),
+    ev(1, 'agent-step', { skill: 'next-task-plan', model: 'claude-opus-5-5' }),
+    ev(4, 'step-start', { step: 'wave', wave: 1 }),
+    ev(5, 'child-start', { bead: 'b.1', model: 'sonnet', wave: 1 }),
+    ev(6, 'agent-step', { skill: 'next-task-implement', agentId: 'a1', agentType: 'implementer-sonnet', model: 'claude-sonnet-5-5', bead: 'b.1' }),
+    ev(7, 'agent-step', { skill: 'next-task-write-tests', bead: 'b.1' }), // Record line, no agent id
+    ev(9, 'agent-step', { skill: 'next-task-test', bead: 'b.1' }),
+    ev(9, 'agent-step', { skill: 'next-task-test', agentId: 'a1', bead: 'b.1' }), // hook re-read of the same step
+    ev(10, 'child-start', { bead: 'b.2', model: 'haiku', wave: 1 }),
+    ev(11, 'agent-step', { skill: 'next-task-write-tests', bead: 'b.2' }), // implementer known only from Record lines
+  ];
+  const t = deriveTimeline(run, events);
+  const byKey = Object.fromEntries(t.agents.map((l) => [l.key, l]));
+  assert.deepEqual(t.agents.map((l) => l.key), ['main', 'a1', 'bead:b.2']);
+  assert.equal(byKey.main.role, 'orchestrator');
+  assert.equal(byKey.main.current.skill, 'next-task-plan');
+  assert.deepEqual(byKey.a1.steps.map((s) => s.skill), ['next-task-implement', 'next-task-write-tests', 'next-task-test']);
+  assert.equal(byKey.a1.steps[0].durationMs, 60_000);
+  assert.deepEqual([byKey.a1.role, byKey.a1.model, byKey.a1.current.skill, byKey.a1.running], ['implementer', 'claude-sonnet-5-5', 'next-task-test', true]);
+  assert.deepEqual([byKey['bead:b.2'].role, byKey['bead:b.2'].model], ['implementer', 'haiku'], 'model from child-start');
+  assert.equal(agentLabel(byKey.a1), 'Implementer · b.1');
+  assert.deepEqual(agentLanes(t, 'b.2').map((l) => l.key), ['bead:b.2']);
+  assert.equal(viewFor(run, events).activity, 'Wave 1 · b.1 (sonnet) in next-task-test · b.2 (haiku) in next-task-write-tests');
+});
+
+test('deriveTimeline agents: a reviewer ends at its agent event, a resumed implementer runs again, an ended run closes all', () => {
+  const run = { id: 'r', kind: 'next-task', status: 'running', started: '2026-11-14T10:00:00.000Z' };
+  const events = [
+    ev(1, 'agent-step', { skill: 'next-task-implement', agentId: 'a1', agentType: 'implementer-sonnet', bead: 'b.1' }),
+    ev(5, 'agent', { agentId: 'a1', bead: 'b.1', model: 'claude-sonnet-5-5', durationMs: 240_000, cost: 0.5 }),
+    ev(6, 'agent-step', { skill: 'next-task-review', agentId: 'r1', agentType: 'implementer-sonnet', bead: 'b.1' }),
+    ev(8, 'agent', { agentId: 'r1', bead: 'b.1', durationMs: 120_000, cost: 0.1 }),
+    ev(9, 'agent-step', { skill: 'next-task-test', agentId: 'a1', bead: 'b.1' }),
+    ev(12, 'agent', { agentId: 'x9', agentType: 'Explore', durationMs: 60_000 }), // never read a skill
+  ];
+  const t = deriveTimeline(run, events);
+  const byKey = Object.fromEntries(t.agents.map((l) => [l.key, l]));
+  assert.equal(byKey.r1.role, 'reviewer');
+  assert.equal(byKey.r1.running, false);
+  assert.equal(byKey.r1.steps[0].durationMs, 120_000);
+  assert.equal(agentLabel(byKey.r1), 'Reviewer · b.1');
+  assert.deepEqual([byKey.a1.running, byKey.a1.current.skill, byKey.a1.steps[0].end], [true, 'next-task-test', ev(9).ts]);
+  assert.deepEqual([byKey.x9.role, byKey.x9.start, byKey.x9.steps.length, agentLabel(byKey.x9)], ['agent', ev(11).ts, 0, 'Explore']);
+  assert.deepEqual(agentLanes(t).map((l) => l.key), ['a1', 'r1', 'x9'], 'running first');
+
+  const ended = deriveTimeline({ ...run, status: 'blocked', ended: ev(20).ts }, events);
+  const a1 = ended.agents.find((l) => l.key === 'a1');
+  assert.deepEqual([a1.running, a1.current, a1.steps[1].durationMs], [false, null, 11 * 60_000]);
 });

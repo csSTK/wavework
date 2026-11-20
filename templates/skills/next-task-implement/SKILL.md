@@ -6,6 +6,10 @@ description: The sequence an implementer sub-agent follows for one beads child t
 # next-task-implement
 
 You implement exactly one child bead. You don't plan, redesign or widen the scope. Read each step's skill (`.claude/skills/<name>/SKILL.md`) and follow it in order.
+{{#if dashboard}}
+
+Record: at the start of steps 2–5, `cd <worktree> && node .claude/wavework/dashboard/record.mjs agent-step --bead <id> --skill <step skill> 2>/dev/null || true` (e.g. `--skill next-task-write-tests`), so the dashboard shows which step you are in. Fire-and-forget: never wait on or react to it.
+{{/if}}
 
 0. **Check the worktree.** Your prompt names a worktree path and a branch. Work only there: start every Bash command with `cd <worktree> &&`, use absolute paths under it for Read/Edit/Write, and never run `git switch`/`checkout`.
    - Run `cd <worktree> && git rev-parse --show-toplevel && git branch --show-current`. If either doesn't match the prompt, **stop** and report it. Don't write anything.

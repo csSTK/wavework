@@ -17,9 +17,9 @@ export function loadPricing(file = PRICING_FILE) {
   try { return JSON.parse(readFileSync(file, 'utf8')).models ?? {}; } catch { return {}; }
 }
 
-const BEAD = /\bbead\b\s*:?\s*([a-z][a-z0-9]*-[a-z0-9]+(?:\.[0-9]+)*)\b/i;
+export const BEAD = /\bbead\b\s*:?\s*([a-z][a-z0-9]*-[a-z0-9]+(?:\.[0-9]+)*)\b/i;
 
-function promptText(content) {
+export function promptText(content) {
   if (typeof content === 'string') return content;
   if (Array.isArray(content)) return content.map((c) => (typeof c?.text === 'string' ? c.text : '')).join('\n');
   return '';

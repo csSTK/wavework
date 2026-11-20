@@ -41,7 +41,7 @@ export const DASHBOARD_DIR = '.claude/wavework/dashboard';
 /** Files of templates/dashboard/ (test/targets.test.mjs checks the list against the directory). */
 export const DASHBOARD_FILES = [
   'README.md', 'pricing.json', 'record.mjs', 'server.mjs',
-  'hooks/session-start.mjs', 'hooks/subagent-stop.mjs',
+  'hooks/agent-step.mjs', 'hooks/session-start.mjs', 'hooks/subagent-stop.mjs',
   'lib/ci.mjs', 'lib/derive.mjs', 'lib/settings.mjs', 'lib/tokens.mjs',
   'public/app.css', 'public/app.js', 'public/default-theme.css', 'public/format.mjs', 'public/index.html',
 ];

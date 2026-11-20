@@ -101,5 +101,85 @@ export function deriveTimeline(run, events, now = Date.now()) {
   };
 
   const pushed = [...steps].reverse().find((s) => s.step === 'push' && s.sha)?.sha ?? null;
-  return { steps, children, reviews, tests, totals, sha: pushed };
+  return { steps, children, reviews, tests, totals, sha: pushed, agents: deriveAgents(run, events, children) };
+}
+
+/**
+ * One lane per agent: the orchestrator (`agent-step` without agentId and bead), each sub-agent (by agentId), and an
+ * implementer known only from `agent-step --bead` Record lines. Each lane lists its steps (the skills it read or
+ * recorded, in order; a re-read of the current skill is not a new step), its current step while it runs, its model,
+ * bead and time window. A sub-agent ends at its `agent` event (SubagentStop), a bead-only lane at its `child-end`,
+ * every open lane at the end of the run.
+ */
+export function deriveAgents(run, events, children = []) {
+  const lanes = [];
+  const byId = new Map();
+  const childModel = new Map(children.map((c) => [c.bead, c.model]));
+  const make = (key, fields) => {
+    const lane = {
+      key, agentId: null, agentType: null, role: 'agent', model: null, bead: null, start: null, end: null,
+      durationMs: null, running: false, current: null, steps: [], cost: null, ...fields,
+    };
+    lanes.push(lane);
+    byId.set(key, lane);
+    return lane;
+  };
+  const roleOf = (lane, skill) => {
+    if (!lane.agentId) return lane.key === 'main' ? 'orchestrator' : 'implementer';
+    if (skill === 'next-task-review' && lane.steps.length === 0) return 'reviewer';
+    return /^implementer\b/.test(lane.agentType ?? '') ? 'implementer' : 'agent';
+  };
+  const laneFor = (e) => {
+    if (e.agentId) return byId.get(e.agentId) ?? make(e.agentId, { agentId: e.agentId });
+    if (!e.bead) return byId.get('main') ?? make('main', { role: 'orchestrator' });
+    // A Record line from an implementer: its lane is the latest implementer lane of that bead, else a lane of its own.
+    const own = [...lanes].reverse().find((l) => l.bead === e.bead && l.role === 'implementer');
+    return own ?? make(`bead:${e.bead}`, { bead: e.bead, role: 'implementer' });
+  };
+
+  for (const e of events) {
+    if (e.type === 'agent-step' && typeof e.skill === 'string' && e.skill) {
+      const lane = laneFor(e);
+      if (lane.steps.length === 0 && lane.agentId) lane.role = roleOf(lane, e.skill);
+      if (!lane.agentType && e.agentType) { lane.agentType = e.agentType; if (lane.role === 'agent') lane.role = roleOf(lane, null); }
+      if (e.model) lane.model = e.model;
+      if (!lane.bead && e.bead) lane.bead = e.bead;
+      if (!lane.start) lane.start = e.ts;
+      lane.end = null; // a resumed agent (SendMessage after a review) is running again
+      const last = lane.steps[lane.steps.length - 1];
+      if (last && last.skill === e.skill && !last.end) continue;
+      if (last && !last.end) last.end = e.ts;
+      lane.steps.push({ skill: e.skill, start: e.ts, end: null });
+    } else if (e.type === 'agent' && e.agentId) {
+      const lane = byId.get(e.agentId) ?? make(e.agentId, {
+        agentId: e.agentId, agentType: e.agentType ?? null, bead: e.bead ?? null,
+        start: Number.isFinite(e.durationMs) ? new Date(Date.parse(e.ts) - e.durationMs).toISOString() : e.ts,
+      });
+      if (lane.role === 'agent') lane.role = roleOf(lane, null);
+      lane.end = e.ts;
+      if (!lane.model && e.model) lane.model = e.model;
+      if (!lane.bead && e.bead) lane.bead = e.bead;
+      if (typeof e.cost === 'number') lane.cost = (lane.cost ?? 0) + e.cost;
+    } else if (e.type === 'child-end' && e.bead) {
+      const lane = byId.get(`bead:${e.bead}`);
+      if (lane && !lane.end) lane.end = e.ts;
+    }
+  }
+
+  const runEnd = run?.ended ?? null;
+  for (const lane of lanes) {
+    if (!lane.end && run?.status !== 'running') lane.end = runEnd;
+    lane.running = !lane.end && run?.status === 'running';
+    if (!lane.model && lane.role === 'implementer' && lane.bead) lane.model = childModel.get(lane.bead) ?? null;
+    for (const s of lane.steps) {
+      if (!s.end && lane.end && s.start <= lane.end) s.end = lane.end;
+      s.durationMs = s.end ? ms(s.start, s.end) : null;
+    }
+    lane.durationMs = lane.start && lane.end ? ms(lane.start, lane.end) : null;
+    const last = lane.steps[lane.steps.length - 1];
+    lane.current = lane.running && last && !last.end ? last : null;
+    if (lane.cost !== null) lane.cost = Math.round(lane.cost * 1e6) / 1e6;
+  }
+  // Orchestrator first, then by start.
+  return lanes.sort((a, b) => (a.key === 'main' ? -1 : b.key === 'main' ? 1 : (a.start ?? '').localeCompare(b.start ?? '')));
 }

@@ -51,7 +51,7 @@ For each file `init` would write that already exists: identical content is kept 
 - `.claude/agents/implementer-<model>.md`: one implementer agent per model in the config (the default config gives `implementer-sonnet` and `implementer-haiku`)
 - `.claude/scripts/red-green-check.sh` and its test, plus `.claude/scripts/code-map-check.mjs` with a folder code map
 - `.claude/wavework/dashboard/`: the pipeline dashboard (with `dashboard.enabled`, the default)
-- `.claude/settings.json`: the dashboard's two hooks, merged into your settings without touching other entries
+- `.claude/settings.json`: the dashboard's three hooks, merged into your settings without touching other entries
 - `.claude/wavework.json`: your configuration (never overwritten)
 - `.claude/wavework.lock.json`: the hashes of what wavework wrote (see [docs/lock.md](docs/lock.md))
 

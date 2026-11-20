@@ -2,7 +2,7 @@
 // Layout after GitHub Actions: every run shows its stages (plan, waves, finish, CI) with a status icon each, what
 // the agents are doing right now, and where problems happened.
 import {
-  ciBadge, findingsOf, formatCost, formatDuration, formatTokens, parseRoute, pipelineView, relativeTime,
+  agentLabel, agentLanes, ciBadge, findingsOf, formatCost, formatDuration, formatTokens, modelLabel, parseRoute, pipelineView, relativeTime,
   resultBadge, reviewRows, reviewsByBead, safeHref, sortRuns, stageStatusLabel, statusBadge, tokensOf, formatStarted,
 } from './format.mjs';
 
@@ -78,7 +78,8 @@ async function getJson(url) {
 }
 
 // details: run id -> /api/runs/:id answer (or {error}); every run's detail is loaded, the list shows its stages too.
-const state = { runs: null, listError: null, details: new Map(), route: parseRoute(location.hash) };
+// bead: the bead whose agents the run detail shows (null: all); openLanes: agent lanes the user expanded or collapsed.
+const state = { runs: null, listError: null, details: new Map(), route: parseRoute(location.hash), bead: null, openLanes: new Map() };
 const flatRuns = () => (state.runs ?? []).flatMap((r) => [r, ...(r.children ?? [])]);
 const membersOf = (id) => (state.runs ?? []).find((r) => r.id === id)?.children ?? [];
 const viewOf = (id) => {
@@ -212,11 +213,63 @@ function sidebar(view, run) {
     })));
 }
 
+/** A bead id that shows the bead's agents (current step, model, time) in the Agents section. */
+function beadButton(bead) {
+  const b = h('button', { type: 'button', class: 'mono bead-id bead-link', 'aria-pressed': String(state.bead === bead), title: `Show the agents of ${bead}` }, bead);
+  b.addEventListener('click', (e) => { e.stopPropagation(); selectBead(state.bead === bead ? null : bead); });
+  return b;
+}
+
+function selectBead(bead) {
+  state.bead = bead;
+  render();
+  document.getElementById('agents')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
 function beadLine(b) {
   const review = b.reviewRounds ? `review ${b.verdict ?? dash}${b.reviewRounds > 1 ? ` · ${b.reviewRounds} rounds` : ''}` : null;
   return h('li', { class: 'bead', 'data-status': b.status }, icon(b.status, `${b.bead}: ${b.result ?? stageStatusLabel(b.status)}`),
-    h('span', { class: 'mono bead-id' }, b.bead),
+    beadButton(b.bead),
     h('span', { class: 'small muted' }, [b.model, review].filter(Boolean).join(' · ')));
+}
+
+const liveFor = (start) => h('span', { 'data-live': start }, formatDuration(Date.now() - Date.parse(start)));
+
+/** One agent: who it is, its model, the step it is in now (and for how long), and its steps so far when expanded. */
+function agentLane(lane) {
+  const status = lane.running ? 'in_progress' : 'success';
+  const now = lane.current;
+  const last = lane.steps[lane.steps.length - 1];
+  const open = state.openLanes.get(lane.key) ?? (lane.running || state.bead != null);
+  const steps = lane.steps.map((x, i) => {
+    const cur = Boolean(now) && i === lane.steps.length - 1;
+    return h('li', { 'data-status': cur ? 'in_progress' : 'success' }, icon(cur ? 'in_progress' : 'success'),
+      h('span', { class: 'mono' }, x.skill),
+      h('span', { class: 'small muted', title: x.start }, formatStarted(x.start)),
+      h('span', { class: 'num muted small' }, cur ? liveFor(x.start) : formatDuration(x.durationMs)));
+  });
+  const details = h('details', { class: 'lane', 'data-testid': 'agent-lane', 'data-running': lane.running || null, open: open || null },
+    h('summary', null, icon(status, lane.running ? 'Running' : 'Finished'),
+      h('span', { class: 'lane-who' }, h('strong', null, agentLabel(lane)),
+        h('span', { class: 'small muted' }, [lane.agentType && lane.role !== 'agent' ? lane.agentType : null, lane.agentId ? `agent ${lane.agentId.slice(0, 8)}` : null].filter(Boolean).join(' · '))),
+      h('span', { class: 'badge', 'data-tone': 'neutral', title: lane.model ?? 'model unknown' }, modelLabel(lane.model)),
+      h('span', { class: 'lane-step' },
+        now ? [h('span', { class: 'small muted' }, 'now '), h('span', { class: 'mono' }, now.skill), ' · ', liveFor(now.start)]
+          : last ? [h('span', { class: 'small muted' }, 'last '), h('span', { class: 'mono' }, last.skill)] : h('span', { class: 'small muted' }, 'no steps recorded')),
+      h('span', { class: 'num muted small', title: 'Time since the agent started' },
+        lane.running && lane.start ? liveFor(lane.start) : formatDuration(lane.durationMs))),
+    steps.length ? h('ol', { class: 'subs lane-steps' }, steps) : h('p', { class: 'small subtle' }, 'This agent did not read or record any step.'));
+  details.addEventListener('toggle', () => state.openLanes.set(lane.key, details.open));
+  return details;
+}
+
+function agentsSection(t) {
+  const lanes = agentLanes(t, state.bead);
+  const head = h('div', { class: 'card-head' }, h('h2', null, state.bead ? h('span', null, 'Agents of ', h('span', { class: 'mono' }, state.bead)) : 'Agents'),
+    state.bead ? (() => { const b = h('button', { type: 'button', class: 'btn' }, 'Show all agents'); b.addEventListener('click', () => selectBead(null)); return b; })() : null);
+  return h('section', { class: 'card', id: 'agents', 'data-testid': 'agents' }, head,
+    lanes.length ? h('div', { class: 'lanes' }, lanes.map(agentLane))
+      : empty(state.bead ? 'No agent steps recorded for this bead yet.' : 'No agent steps recorded yet. They appear once an agent reads a pipeline skill.'));
 }
 
 /** The pipeline graph: stage cards left to right (top to bottom on phones), with sub-steps and beads inside. */
@@ -257,7 +310,7 @@ function renderDetail(id) {
   const children = t.children.map((c) => {
     const rv = reviews.get(c.bead);
     return h('tr', { 'data-testid': 'child-row' },
-      h('td', { class: 'mono' }, c.bead), h('td', { 'data-col': 'model' }, c.model ?? dash), h('td', { class: 'num' }, c.wave ?? dash),
+      h('td', null, beadButton(c.bead)), h('td', { 'data-col': 'model' }, c.model ?? dash), h('td', { class: 'num' }, c.wave ?? dash),
       h('td', { class: 'num' }, formatDuration(c.durationMs)),
       h('td', { class: 'num', 'data-col': 'tokens' }, formatTokens(tokensOf({ ...c.agents, agents: c.agents?.count }))),
       h('td', { class: 'num', 'data-col': 'cost' }, formatCost(c.agents?.cost ?? null)),
@@ -297,6 +350,7 @@ function renderDetail(id) {
             stat('Agents', String(t.totals.agents))),
           t.totals.cost === null && t.totals.agents > 0 ? h('p', { class: 'small muted' }, 'Cost is unknown because at least one agent used a model without a price.') : null),
         h('section', { class: 'card' }, h('div', { class: 'card-head' }, h('h2', null, isBatch ? 'Epics' : 'Pipeline'), h('div', { class: 'chips' }, problemChips(view))), h('div', { class: 'graph-scroll' }, graph(view))),
+        isBatch ? null : agentsSection(t),
         annotations(view),
         members.length ? section('Runs in this batch', h('ul', { class: 'runs' }, members.map((m) => runRow(m, false)))) : null,
         isBatch ? null : section('Beads', t.children.length
@@ -325,7 +379,9 @@ function render() {
 }
 
 async function route() {
+  const prev = state.route;
   state.route = parseRoute(location.hash);
+  if (prev.view !== 'run' || prev.id !== state.route.id) { state.bead = null; state.openLanes.clear(); }
   if (state.route.view === 'run') state.details.delete(state.route.id);
   render();
   window.scrollTo(0, 0);

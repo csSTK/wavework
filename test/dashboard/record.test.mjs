@@ -25,6 +25,7 @@ test('every event type is appended with ts and type', () => {
     tests: { scope: 'backend', passed: 5, failed: 0, duration: 12 },
     finding: { bead: 'x.9' },
     agent: { agentId: 'a1', model: 'sonnet', durationMs: 5, tokensIn: 1, tokensOut: 2, cost: 0.1 },
+    'agent-step': { agentId: 'a1', skill: 'next-task-test', model: 'claude-sonnet-5-5', bead: 'x.1' },
   };
   assert.deepEqual(Object.keys(samples).sort(), [...EVENT_TYPES].sort());
   for (const [type, f] of Object.entries(samples)) recordEvent(store, 'r1', type, f);

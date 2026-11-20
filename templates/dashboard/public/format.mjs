@@ -133,6 +133,28 @@ export function stepLabel({ step, wave }) {
   return wave != null ? `${name} · wave ${wave}` : name;
 }
 
+/** "claude-sonnet-5-5" -> "Sonnet 5.5", "claude-opus-4-1-20250805" -> "Opus 4.1"; aliases and other ids stay as they are. */
+export function modelLabel(model) {
+  if (typeof model !== 'string' || !model) return DASH;
+  const m = /^claude-([a-z]+)-(\d+)(?:-(\d{1,2}))?(?:-\d{8})?$/.exec(model);
+  if (!m) return model;
+  return `${m[1].replace(/^./, (c) => c.toUpperCase())} ${m[2]}${m[3] ? `.${m[3]}` : ''}`;
+}
+
+const ROLE_LABEL = { orchestrator: 'Orchestrator', implementer: 'Implementer', reviewer: 'Reviewer', agent: 'Agent' };
+/** "Implementer · rumbo-11y.35", "Reviewer · branch", "Orchestrator", or the agent type for other agents. */
+export function agentLabel(lane) {
+  const who = lane.role === 'agent' && lane.agentType ? lane.agentType : ROLE_LABEL[lane.role] ?? 'Agent';
+  return lane.bead ? `${who} · ${lane.bead}` : who;
+}
+
+/** The agent lanes of a run detail, optionally only those of one bead. Running lanes first, then by start. */
+export function agentLanes(timeline, bead = null) {
+  const lanes = (timeline?.agents ?? []).filter((l) => !bead || l.bead === bead);
+  return [...lanes].sort((a, b) => Number(b.running) - Number(a.running) || (a.key === 'main' ? -1 : b.key === 'main' ? 1 : 0)
+    || (a.start ?? '').localeCompare(b.start ?? ''));
+}
+
 export function findingsOf(events) {
   return (events ?? []).filter((e) => e.type === 'finding' && e.bead).map((e) => e.bead);
 }
@@ -274,7 +296,7 @@ export function pipelineView(detail, members = []) {
     const s = stages.find((x) => x.id === p.stage);
     if (s) s.problems[p.level] += 1;
   }
-  return { stages, problems, activity: activityOf(run, stages, events), lastEventTs };
+  return { stages, problems, activity: activityOf(run, stages, events, timeline.agents ?? []), lastEventTs };
 }
 
 /** Failures and warnings, oldest first, each with the stage it happened in. */
@@ -318,7 +340,7 @@ function problemsOf({ run, events, beads, stages, ci }) {
 }
 
 /** What a running run is doing now, as one line, e.g. "Wave 2 · rumbo-qu3.2 (sonnet) fixing review round 1". */
-function activityOf(run, stages, events) {
+function activityOf(run, stages, events, agents) {
   if (!isLive(run)) return null;
   const now = stages.find((s) => s.status === 'in_progress' && s.id !== 'ci');
   if (!now) {
@@ -337,8 +359,11 @@ function activityOf(run, stages, events) {
     const working = now.beads.filter((b) => b.status === 'in_progress');
     if (working.length === 0) parts.push('starting agents');
     for (const b of working) {
-      const doing = !b.lastReview ? 'implementing'
-        : String(b.lastReview.verdict).toUpperCase() === 'FIX' ? `fixing review round ${b.lastReview.round ?? b.reviewRounds}` : 'committing';
+      // The step an agent of this bead is in right now (from agent-step events), else what the events imply.
+      const live = agents.filter((l) => l.bead === b.bead && l.current).pop();
+      const doing = live ? (live.role === 'reviewer' ? 'in review' : `in ${live.current.skill}`)
+        : !b.lastReview ? 'implementing'
+          : String(b.lastReview.verdict).toUpperCase() === 'FIX' ? `fixing review round ${b.lastReview.round ?? b.reviewRounds}` : 'committing';
       parts.push(`${b.bead}${b.model ? ` (${b.model})` : ''} ${doing}`);
     }
   }
