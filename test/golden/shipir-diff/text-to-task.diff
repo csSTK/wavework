@@ -34,6 +34,12 @@
 -- Carry a model label per the Model Policy: `model:haiku` for small, well-specified, low-risk changes; `model:sonnet` for everything else and **always** for auth, permissions, remote host access, audit, subprocess execution, path handling and streaming.
 -- For frontend UI children: name `apple-design` in the description and add an acceptance criterion such as "UI follows the apple-design skill: instant press feedback, reduced-motion handled, consistent typography and spacing". If the work needs a new library (e.g. `motion` for springs), say so explicitly in the child.
 -- Respect the build order in HANDOFF.md and the architecture rules (e.g. a Flyway migration is its own child, ahead of the entity/repository that needs it).
-@@ -71 +73 @@
+@@ -56 +58 @@
++Run `bd dolt pull` first, so new IDs don't collide with beads another clone already created. If it fails or reports a conflict, stop and report it.
++
+@@ -71 +75 @@
 +Titles: imperative and specific ("Add a migration that creates the hosts table", not "Hosts DB stuff").
 -Titles: imperative and specific ("Add Flyway migration V2__create_docker_hosts", not "Hosts DB stuff").
+@@ -75 +79 @@
++Keep it short. Show the tree (`bd list --parent <epic> --pretty`), mention any assumptions you made, list anything you deliberately left out or deferred, and name which children are ready to start. Do not commit. Run `bd dolt push` after creating the beads so other clones see them (on a rejection: `bd dolt pull`, then push again; report if it still fails). `.beads/issues.jsonl` is exported by the next `next-task-finish`.
+-Keep it short. Show the tree (`bd list --parent <epic> --pretty`), mention any assumptions you made, list anything you deliberately left out or deferred, and name which children are ready to start. Do not commit; `.beads/issues.jsonl` is exported automatically.

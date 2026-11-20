@@ -6,7 +6,7 @@ The 16 skills in `templates/skills/<name>/SKILL.md` were ported from Shipir's `.
 
 `test/templates.test.mjs` renders every template with `examples/shipir.wavework.json` (repo name `shipir`, dashboard on by default) and diffs the result against a snapshot of the Shipir original in `test/golden/shipir-source/<skill>.md`. The diff is stored in `test/golden/shipir-diff/<skill>.diff` (empty file = identical). The test fails when the diff changes, so every change in a template or in the context shows up in review. After reviewing an intended change, regenerate with `UPDATE_GOLDEN=1 npm test` and update this file. A skill with a non-empty diff must have a `## <skill>` section below (also tested). Agents and scripts are covered the same way by `test/targets.test.mjs` (snapshots `implementer-sonnet.md`, `implementer-haiku.md`, `red-green-check.sh`, `red-green-check.test.sh`; diffs `<file>.diff`; sections `## implementer-sonnet` etc.).
 
-Identical to Shipir with its config: `next-task-beads`, `next-task-branch`. This holds for any directory name of the checkout or worktree that runs `wavework init`/`update`: the repo name comes from the main checkout (`git rev-parse --git-common-dir`), not from the current directory, and `test/repo-root.test.mjs` renders the skill in a worktree with a different name to prove it.
+Identical to Shipir with its config: `next-task-beads`. This holds for any directory name of the checkout or worktree that runs `wavework init`/`update`: the repo name comes from the main checkout (`git rev-parse --git-common-dir`), not from the current directory, and `test/repo-root.test.mjs` renders the skill in a worktree with a different name to prove it.
 
 ## Design decisions
 
@@ -40,6 +40,10 @@ The goldens are rendered with `test/fixtures/shipir-file-layout.wavework.json` (
 
 - The `Record:` line calls the installed recorder, `node .claude/wavework/dashboard/record.mjs` instead of `node tools/pipeline-dashboard/record.mjs`.
 
+## next-task-branch
+
+- Step 2 also runs `bd dolt pull` in the main checkout before the branch is created and stops on a failed or conflicting pull. Each clone has its own beads database and they only meet through `bd dolt push`/`pull`; without the pull a second clone plans and creates IDs against a stale database (seen in Rumbo: 123 issues lost, 36 colliding IDs).
+
 ## next-task-code
 
 - The Shipir architecture checklist (package-by-feature, docker-java, `ProcessBuilder`, `PathValidationUtil`, Flyway) is replaced by "follow CLAUDE.md": Java/Spring prose belongs in the project's own rules file.
@@ -72,6 +76,8 @@ The goldens are rendered with `test/fixtures/shipir-file-layout.wavework.json` (
 
 - Recording sentence: "record.mjs only exists on the branch, so never call it from `MAIN`" became "record from `<WT>` while it exists, never after it is removed".
 - The `HANDOFF.md` documentation bullet is dropped (Shipir planning file).
+- Step 5 exports the beads with `bd export -o .beads/issues.jsonl` right before the documentation commit and stops when the line count drops against the base branch (a sign of a stale database); the file is not exported on its own without the beads git hooks.
+- Step 6 runs `bd dolt push` after the git push, with one `bd dolt pull` and retry on a rejection.
 
 ## next-task-implement
 
@@ -125,6 +131,7 @@ The goldens are rendered with `test/fixtures/shipir-file-layout.wavework.json` (
 - Scope check: roles (ADMIN/OPERATOR/VIEWER), Shipir modules (`docker/`, `host/`, `compose/`) and "JWT vs. session, data model choices" are generic; placement lists the check areas.
 - Children: "unit and/or Testcontainers integration" dropped; "Split backend and frontend" became "Split work in different areas"; the model-label bullet lists the config's model rules (the Shipir text "always for auth, permissions, remote host access, audit, subprocess execution, path handling and streaming" is now the Shipir `haiku`/`sonnet` rule texts, see the checklist below); the UI bullet comes from `uiSkill` (name, paths) without the `motion` example; "build order in HANDOFF.md" and "Flyway migration ... entity/repository" became "build order and architecture rules in CLAUDE.md (for example a schema migration is its own child)".
 - Example label `model:sonnet` is `model:<models.implementers.default>`; the example title no longer names Flyway.
+- Step 4 runs `bd dolt pull` before creating beads (no IDs that another clone already used); the report runs `bd dolt push` instead of relying on an automatic `.beads/issues.jsonl` export.
 
 ## watch-ci
 

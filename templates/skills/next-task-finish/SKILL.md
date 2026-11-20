@@ -36,10 +36,12 @@ Record: `step-start --step finish` at the start. The full gate in step 2 records
    {{/if}}
    - README.md: update only if setup, commands or features visible to users changed.
    - CLAUDE.md: update Build & Test or the rules only if they changed.
+   - Export the beads right before this commit: `bd export -o .beads/issues.jsonl` (the file is only a snapshot; it is not updated on its own). Check that the line count did not drop against `origin/{{baseBranch}}` (`git diff --stat`): a big drop means this clone's database is behind, so stop and report instead of committing it.
    - Commit as `Document <epic title> (<epic-id>)` (bead runs: `Document <short summary> (<id>, <id>)`), including `.beads/issues.jsonl`.
 6. **Push to {{baseBranch}}.**
    - `git fetch origin` and check `git merge-base --is-ancestor origin/{{baseBranch}} HEAD`. If {{baseBranch}} moved in the meantime, go back to step 1 (rebase and run the gate again).
    - `git push origin HEAD:{{baseBranch}}`. This is a fast-forward push; never use `--force` or `--force-with-lease`. If it is rejected, stop and report.
+   - Then push the beads: `bd dolt push`. If it is rejected because another clone pushed first, run `bd dolt pull` once and push again. If that fails too, report it (the code push stands) and don't retry with force.
 7. **Clean up** after a successful push, from the main repo (`MAIN`, see `next-task-branch`):
    - `git -C "$MAIN" worktree remove <WT>`. Without `--force`: it refuses if anything is uncommitted; then stop and report.
    - Check `git -C "$MAIN" merge-base --is-ancestor <branch> origin/{{baseBranch}}`, then `git -C "$MAIN" branch -D <branch>`. The ancestor check is what makes `-D` safe; never skip it.
