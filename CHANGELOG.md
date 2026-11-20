@@ -7,10 +7,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-### Fixed
-
-- Beads stay in sync across clones. Each clone keeps its own beads database and they only meet through `bd dolt push`/`pull`, but no skill ran either, and `.beads/issues.jsonl` was only exported when an agent happened to run `bd export`. A second clone could plan against a stale database, hand out IDs another clone had already used, and overwrite the committed export with an older one. Now `next-task-branch` and `text-to-task` run `bd dolt pull` before work (and stop on a failed or conflicting pull), `next-task-finish` exports `.beads/issues.jsonl` right before the documentation commit (stopping when the line count drops) and runs `bd dolt push` after the git push, and `text-to-task` pushes the beads it created.
-
 ## [0.3.2] - 2026-11-17
 
 ### Changed
