@@ -126,6 +126,24 @@ test('env override wins over git', () => {
 test('parseArgs coerces numbers and lists, camel-cases keys', () => {
   assert.deepEqual(parseArgs(['--wave', '2', '--units', 'a,b', '--red-before-green', 'T1', '--flag', '--name', '12abc']),
     { wave: 2, units: ['a', 'b'], redBeforeGreen: 'T1', flag: true, name: '12abc' });
+  // Space-separated lists (how a shell expands several ids) split the same way.
+  assert.deepEqual(parseArgs(['--units', 'a-1 a-2,  a-3']).units, ['a-1', 'a-2', 'a-3']);
+});
+
+test('CLI rejects a missing or malformed --bead and writes nothing', () => {
+  const store = tmp();
+  const env = { WAVEWORK_PIPELINE_STORE: store };
+  for (const args of [['--bead'], ['--bead', 'x'], ['--bead', ''], ['--bead', 'a b']]) {
+    const lines = [];
+    assert.equal(main(['finding', '--run', 'r1', ...args], { cwd: tmp(), env, stderr: (l) => lines.push(l) }), 0);
+    assert.equal(lines.length, 1, args.join(' '));
+    assert.match(lines[0], /invalid --bead/);
+  }
+  assert.deepEqual(readdirSync(store), []);
+  for (const bead of ['rumbo-zmi.91', 'shipr-p9ge', 'branch']) {
+    main(['finding', '--run', 'r1', '--bead', bead], { cwd: tmp(), env, stderr: () => {} });
+  }
+  assert.deepEqual(events(store, 'r1').map((e) => e.bead), ['rumbo-zmi.91', 'shipr-p9ge', 'branch']);
 });
 
 test('broken store dir exits 0 with one stderr line', () => {

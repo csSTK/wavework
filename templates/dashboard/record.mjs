@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // Pipeline run recorder: appends events of /next-task* runs to a store shared by all worktrees.
 // CLI: record.mjs <event> [--run <id>] [--key value ...]. Never fails loudly (exit 0 always).
-// Importable: resolveStoreDir, findRunByCwd, recordEvent, readRun, listRuns, EVENT_TYPES.
+// Importable: resolveStoreDir, findRunByCwd, findRunInText, recordEvent, readRun, listRuns, EVENT_TYPES.
 import { execFileSync } from 'node:child_process';
 import {
   appendFileSync, closeSync, mkdirSync, openSync, readdirSync, readFileSync,
@@ -21,8 +21,10 @@ const NUMERIC = new Set([
   'wave', 'round', 'mustFix', 'passed', 'failed', 'duration', 'durationMs',
   'tokensIn', 'tokensOut', 'tokensCacheRead', 'tokensCacheWrite', 'cost',
 ]);
-const LIST = new Set(['units']);
+const LIST = new Set(['units', 'lenses']);
 export const RUN_ID = /^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/;
+// A beads id (`<prefix>-<hash>` with optional `.<n>` child suffixes), or `branch` for the branch review.
+export const BEAD_ID = /^(?:[A-Za-z0-9][A-Za-z0-9_]*-[A-Za-z0-9]+(?:\.[0-9]+)*|branch)$/;
 
 /** Store directory: $WAVEWORK_PIPELINE_STORE, else <git common dir>/pipeline-runs. Throws if neither works. */
 export function resolveStoreDir({ cwd = process.cwd(), env = process.env } = {}) {
@@ -62,6 +64,34 @@ export function findRunByCwd(cwd, { storeDir = resolveStoreDir({ cwd }) } = {}) 
     if (run.status !== 'running' || !run.worktree) continue;
     const wt = real(run.worktree);
     if (within(wt, target) && wt.length > bestLen) { best = run; bestLen = wt.length; }
+  }
+  return best;
+}
+
+const PATH_CHAR = /[A-Za-z0-9._-]/;
+
+/** True when `p` occurs in `text` as a whole path (not as the prefix of a longer file or directory name). */
+function mentionsPath(text, p) {
+  for (let i = text.indexOf(p); i !== -1; i = text.indexOf(p, i + 1)) {
+    if (!PATH_CHAR.test(text[i + p.length] ?? '')) return true;
+  }
+  return false;
+}
+
+/**
+ * The running run whose worktree path appears in `text` (longest worktree wins), or null. Sub-agents start in the
+ * main checkout and only `cd` into the run's worktree, so their transcript names the worktree but their cwd does not.
+ */
+export function findRunInText(text, { storeDir }) {
+  if (typeof text !== 'string' || !text) return null;
+  let best = null;
+  let bestLen = -1;
+  for (const run of listRuns(storeDir)) {
+    if (run.status !== 'running' || typeof run.worktree !== 'string' || !run.worktree) continue;
+    const paths = new Set([path.resolve(run.worktree), real(run.worktree)]);
+    for (const p of paths) {
+      if (p.length > bestLen && mentionsPath(text, p)) { best = run; bestLen = p.length; }
+    }
   }
   return best;
 }
@@ -114,7 +144,7 @@ export function parseArgs(args) {
     let value = true;
     if (next !== undefined && !next.startsWith('--')) { value = next; i++; }
     if (typeof value === 'string') {
-      if (LIST.has(key)) value = value.split(',').map((s) => s.trim()).filter(Boolean);
+      if (LIST.has(key)) value = value.split(/[\s,]+/).map((s) => s.trim()).filter(Boolean);
       else if (NUMERIC.has(key) && value.trim() !== '' && Number.isFinite(Number(value))) value = Number(value);
     }
     out[key] = value;
@@ -128,6 +158,9 @@ export function main(argv, { cwd = process.cwd(), env = process.env, stderr = co
     const [type, ...rest] = argv;
     if (!type) throw new Error(`usage: record.mjs <${EVENT_TYPES.join('|')}> --run <id> [--key value ...]`);
     const { run, ...fields } = parseArgs(rest);
+    if ('bead' in fields && (typeof fields.bead !== 'string' || !BEAD_ID.test(fields.bead))) {
+      throw new Error(`invalid --bead: ${JSON.stringify(fields.bead)} (expected a bead id such as abc-1x2.3)`);
+    }
     const storeDir = resolveStoreDir({ cwd, env });
     let runId = typeof run === 'string' ? run : undefined;
     if (!runId) runId = findRunByCwd(cwd, { storeDir })?.id;

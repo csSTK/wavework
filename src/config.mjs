@@ -33,7 +33,12 @@ export const DEFAULTS = Object.freeze({
   codeMap: Object.freeze({ maxDescription: 160 }),
   attribution: Object.freeze({ allowAiTrailer: false }),
   dashboard: Object.freeze({ enabled: true, port: 4690 }),
+  fullGate: Object.freeze({ skipPaths: Object.freeze(['docs/', '.beads/', '*.md']) }),
 });
+
+/** Built-in review lens: always runs, per bead and for the branch. Its checklist lives in next-task-review. */
+export const CODE_LENS = 'code';
+const LENS_SCOPES = ['bead', 'branch', 'both'];
 
 const PATH_PLACEHOLDERS = ['repo', 'unit'];
 const BRANCH_PLACEHOLDERS = ['prefix', 'unit', 'slug'];
@@ -329,7 +334,90 @@ function dashboard(v, path, errs) {
   return out;
 }
 
-const TOP_LEVEL = ['baseBranch', 'worktree', 'checks', 'models', 'tracker', 'codeMap', 'uiSkill', 'findings', 'attribution', 'dashboard'];
+/** A `fullGate.skipPaths` entry: a folder prefix ending in `/`, or `*.<ext>` for every file with that extension. */
+function skipPath(v, path, errs) {
+  if (str(v, path, errs) === undefined) return undefined;
+  if (/^\*\.[A-Za-z0-9]+$/.test(v)) return v;
+  if (!v.endsWith('/')) {
+    errs.push(`${path}: expected a folder prefix ending in "/" or "*.<ext>", got ${JSON.stringify(v)}`);
+    return undefined;
+  }
+  return relativePrefix(v, path, errs);
+}
+
+function fullGate(v, path, errs) {
+  if (!obj(v, path, errs, ['skipPaths'])) return undefined;
+  return {
+    skipPaths: field(v, 'skipPaths', path, errs, (x, p, e) => strArray(x, p, e, { item: skipPath }), { fallback: DEFAULTS.fullGate.skipPaths }),
+  };
+}
+
+function lens(v, path, errs) {
+  if (!obj(v, path, errs, ['name', 'scope', 'whenPaths', 'when', 'model', 'checklist'])) return undefined;
+  const out = {
+    name: field(v, 'name', path, errs, (x, p, e) => {
+      if (typeof x === 'string' && /^[a-z][a-z0-9-]{0,31}$/.test(x)) return x;
+      e.push(`${p}: expected a short lowercase name (letters, digits, "-"), got ${JSON.stringify(x)}`);
+      return undefined;
+    }, { required: true }),
+    scope: field(v, 'scope', path, errs, (x, p, e) => {
+      if (LENS_SCOPES.includes(x)) return x;
+      e.push(`${p}: must be ${LENS_SCOPES.map((s) => `"${s}"`).join(', ')}, got ${JSON.stringify(x)}`);
+      return undefined;
+    }, { fallback: 'bead' }),
+    checklist: field(v, 'checklist', path, errs, str, { required: true }),
+  };
+  if ('whenPaths' in v) out.whenPaths = strArray(v.whenPaths, join_(path, 'whenPaths'), errs, { minItems: 1, item: relativePrefix });
+  if ('when' in v) out.when = str(v.when, join_(path, 'when'), errs);
+  if ('model' in v) out.model = str(v.model, join_(path, 'model'), errs);
+  if (out.name === CODE_LENS) errs.push(`${join_(path, 'name')}: "${CODE_LENS}" is the built-in lens and cannot be configured`);
+  return out;
+}
+
+function review(v, path, errs) {
+  if (!obj(v, path, errs, ['lenses'])) return undefined;
+  const lenses = field(v, 'lenses', path, errs, (x, p, e) => {
+    if (!Array.isArray(x)) {
+      e.push(`${p}: expected an array, got ${typeName(x)}`);
+      return undefined;
+    }
+    const seen = new Set();
+    return x.map((item, i) => {
+      const l = lens(item, `${p}[${i}]`, e);
+      if (l?.name !== undefined) {
+        if (seen.has(l.name)) e.push(`${p}[${i}].name: duplicate lens name "${l.name}"`);
+        seen.add(l.name);
+      }
+      return l;
+    });
+  }, { required: true });
+  return { lenses };
+}
+
+/**
+ * The review lenses besides the built-in code lens: `review.lenses` when configured, else security (always offered)
+ * plus UI design per bead and UX per branch when a `uiSkill` is configured.
+ */
+export function defaultLenses(config) {
+  const lenses = [{
+    name: 'security', scope: 'bead',
+    when: 'the diff touches authentication, sessions, permissions or sharing, secrets or keys, crypto, LLM prompts, or input that reaches a shell, a file path, a query or an outbound request',
+    checklist: 'authorization on every new entry point; input validation and injection (SQL, command, path traversal, prompt); secrets in code, logs or tests; token and crypto handling; malicious-case tests exist for the security-relevant code (see next-task-write-tests)',
+  }];
+  if (config.uiSkill?.name && Array.isArray(config.uiSkill.appliesTo)) {
+    const ui = config.uiSkill;
+    lenses.push({
+      name: 'ui', scope: 'bead', whenPaths: [...ui.appliesTo],
+      checklist: `follows the ${ui.name} skill (read .claude/skills/${ui.name}/SKILL.md): design tokens instead of literal values, spacing and typography, loading, empty, error and disabled states, both themes, accessibility (roles, labels, focus order, contrast)`,
+    }, {
+      name: 'ux', scope: 'branch', whenPaths: [...ui.appliesTo],
+      checklist: 'the user flows the work set adds work end to end across its beads: each new screen or action is reachable, navigation and wording are consistent, error and empty paths lead somewhere, no dead ends, and the e2e specs cover the main journey',
+    });
+  }
+  return lenses;
+}
+
+const TOP_LEVEL = ['baseBranch', 'worktree', 'checks', 'models', 'tracker', 'codeMap', 'uiSkill', 'findings', 'attribution', 'dashboard', 'review', 'fullGate'];
 
 /**
  * Validates a parsed wavework config and fills defaults. Pure: does not touch the file system.
@@ -356,10 +444,19 @@ function validate(raw, file) {
     findings: field(raw, 'findings', '', errs, findings, { fallback: { epicTitles: DEFAULTS.findings.epicTitles } }),
     attribution: field(raw, 'attribution', '', errs, attribution, { fallback: DEFAULTS.attribution }),
     dashboard: field(raw, 'dashboard', '', errs, dashboard, { fallback: DEFAULTS.dashboard }),
+    fullGate: field(raw, 'fullGate', '', errs, fullGate, { fallback: DEFAULTS.fullGate }),
   };
   for (const [key, check] of [['codeMap', codeMap], ['uiSkill', uiSkill]]) {
     if (key in raw) config[key] = check(raw[key], key, errs);
   }
+  config.review = 'review' in raw ? field(raw, 'review', '', errs, review) : { lenses: defaultLenses(config) };
+  // A lens model needs an implementer agent of that model (the reviewer is a fresh implementer-<model>).
+  const agentModels = new Set([config.models?.implementers?.default, ...Object.keys(config.models?.implementers?.rules ?? {})]);
+  (config.review?.lenses ?? []).forEach((l, i) => {
+    if (l?.model !== undefined && !agentModels.has(l.model)) {
+      errs.push(`review.lenses[${i}].model: no implementer agent for "${l.model}" (models: ${[...agentModels].join(', ')})`);
+    }
+  });
 
   if (errs.length > 0) throw configError(errs, file);
   return config;

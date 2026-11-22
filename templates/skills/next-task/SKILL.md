@@ -15,6 +15,8 @@ Orchestrates one epic from branch to push. You coordinate; the implementer sub-a
 
 Each step lives in its own skill under `.claude/skills/`. Read that skill's `SKILL.md` and follow it. Stop and report to the user whenever a step says to stop. Don't skip ahead.
 
+**Keep your context small.** A run lasts hours and every tool output stays in your context. Run checks as `next-task-test` says (output to a log file, read only the summary and the failing tail), never read whole logs, and keep only the verdicts of sub-agent reports in your notes. Long work that only needs a verdict back (the full gate and its flake triage in `next-task-finish`) runs in a sub-agent.
+
 {{#if dashboard}}
 **Recording:** `Record:` lines call `node .claude/wavework/dashboard/record.mjs <event> --run <RUN> ...` from `<WT>` (record from `<WT>` while it exists; record the end of the run before the worktree is removed). `<RUN>` = the branch name with `/` replaced by `.` (e.g. `{{runIdExample}}`). Fire-and-forget: it always exits 0, never wait on or react to it. Fields: `.claude/wavework/dashboard/README.md`.
 
@@ -49,7 +51,7 @@ Record: every stop in steps 1–7 (failed bead check or deps, failed plan, faile
    - the report has a **Red before green** section (failing test name + assertion line, or an explicit allowed exception); if missing, treat it as a review must-fix and send it back to the implementer
    - **Red-green check:** after re-running `next-task-test` and before the review, run `.claude/scripts/red-green-check.sh <WT>` (it runs the child's new/changed tests against the pre-change code in a throwaway worktree; tests that need external services need them running). Exit 0 = ok, 1 = some test is `GREEN-ON-OLD`, 2 = tool/setup error (fix the cause and rerun; never treat as a pass). Pass its output to the reviewer. Skip only for a stated exception (pure refactor/docs/config), where it prints "no tests changed" anyway
    - check the diff against the acceptance criteria and the CLAUDE.md rules (architecture, security{{#if uiSkill}}, and `{{uiSkill.name}}` for UI under {{uiPaths}}{{/if}})
-   - **Review:** run `next-task-review` (fresh read-only reviewer sub-agent). Must-fix findings go back to the same implementer (SendMessage), then re-verify and review again; at most 3 review rounds per child. Out-of-scope findings go to `next-task-findings`. If round 3 still has must-fix findings, stop that child uncommitted and hand off to the user with the open findings
+   - **Review:** run `next-task-review`: one fresh read-only reviewer per applicable lens, in parallel, merged into one list. `impl` must-fix items go back to the same implementer (SendMessage), then re-verify and review again; at most 3 review rounds per child. A `spec` must-fix item stops the child like a BLOCKED report (the bead needs fixing, not the code). Out-of-scope findings go to `next-task-findings`. If round 3 still has must-fix findings, stop that child uncommitted and hand off to the user with the open findings
    - after a review PASS, commit only that child's files: `git commit -m "<child title> (<child-id>)"`
    - **Findings:** run `next-task-findings` for the agent's reported findings and whatever your own review of the diff turned up outside the child's scope
    {{#if dashboard}}

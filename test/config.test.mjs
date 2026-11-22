@@ -384,3 +384,38 @@ test('codeMap folder path must not start with "-" (the checker would read it as 
   for (const bad of ['-docs/map', '--max']) assert.match(errorOf(withMap({ path: bad })), /codeMap\.path: .*must not start with "-"/, bad);
   assert.doesNotThrow(() => validateConfig(withMap({ path: 'docs/-map' })));
 });
+
+test('review lenses default to security only, plus ui and ux with a uiSkill', () => {
+  assert.deepEqual(validateConfig(minimal()).review.lenses.map((l) => [l.name, l.scope]), [['security', 'bead']]);
+  const ui = validateConfig(minimal({ uiSkill: { name: 'apple-design', appliesTo: ['frontend/'] } }));
+  assert.deepEqual(ui.review.lenses.map((l) => [l.name, l.scope, l.whenPaths ?? null]),
+    [['security', 'bead', null], ['ui', 'bead', ['frontend/']], ['ux', 'branch', ['frontend/']]]);
+  assert.match(ui.review.lenses[1].checklist, /apple-design/);
+});
+
+test('configured review lenses replace the defaults; an empty list leaves only the code lens', () => {
+  const c = validateConfig(minimal({ review: { lenses: [{ name: 'perf', checklist: 'no N+1 queries', whenPaths: ['src/db/'] }] } }));
+  assert.deepEqual(c.review.lenses, [{ name: 'perf', scope: 'bead', checklist: 'no N+1 queries', whenPaths: ['src/db/'] }]);
+  assert.deepEqual(validateConfig(minimal({ review: { lenses: [] } })).review.lenses, []);
+});
+
+test('review lenses are validated', () => {
+  const bad = (lenses) => errorOf(minimal({ review: { lenses } }));
+  assert.match(bad([{ name: 'code', checklist: 'x' }]), /review\.lenses\[0\]\.name: "code" is the built-in lens/);
+  assert.match(bad([{ name: 'Sec Urity', checklist: 'x' }]), /review\.lenses\[0\]\.name: expected a short lowercase name/);
+  assert.match(bad([{ name: 'a' }]), /review\.lenses\[0\]\.checklist: required/);
+  assert.match(bad([{ name: 'a', checklist: 'x', scope: 'epic' }]), /review\.lenses\[0\]\.scope: must be "bead", "branch", "both"/);
+  assert.match(bad([{ name: 'a', checklist: 'x' }, { name: 'a', checklist: 'y' }]), /review\.lenses\[1\]\.name: duplicate lens name "a"/);
+  assert.match(bad([{ name: 'a', checklist: 'x', whenPaths: ['../x/'] }]), /review\.lenses\[0\]\.whenPaths\[0\]: must not contain \.\./);
+  assert.match(bad([{ name: 'a', checklist: 'x', model: 'opus' }]), /review\.lenses\[0\]\.model: no implementer agent for "opus"/);
+  assert.match(bad([{ name: 'a', checklist: 'x', extra: 1 }]), /review\.lenses\[0\]\.extra: unknown key/);
+  assert.match(errorOf(minimal({ review: {} })), /review\.lenses: required/);
+});
+
+test('fullGate.skipPaths: default docs, folder prefixes and *.ext only', () => {
+  assert.deepEqual(validateConfig(minimal()).fullGate, { skipPaths: ['docs/', '.beads/', '*.md'] });
+  assert.deepEqual(validateConfig(minimal({ fullGate: { skipPaths: [] } })).fullGate.skipPaths, []);
+  assert.match(errorOf(minimal({ fullGate: { skipPaths: ['README'] } })), /fullGate\.skipPaths\[0\]: expected a folder prefix ending in "\/" or "\*\.<ext>"/);
+  assert.match(errorOf(minimal({ fullGate: { skipPaths: ['/abs/'] } })), /fullGate\.skipPaths\[0\]: must be relative/);
+  assert.match(errorOf(minimal({ fullGate: { other: 1 } })), /fullGate\.other: unknown key/);
+});
