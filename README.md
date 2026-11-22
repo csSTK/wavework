@@ -5,7 +5,7 @@ wavework is a versioned Claude Code pipeline for repositories that use [beads](h
 The pipeline works like this:
 
 - **Waves of parallel sub-agents.** An epic's tasks are planned into waves; each task is implemented by a sub-agent, and each run works in its own git worktree.
-- **Independent review.** A fresh, read-only sub-agent reviews every task's diff against the bead's acceptance criteria and the project's rules.
+- **Independent review in lenses.** Fresh, read-only sub-agents review every task's diff in parallel, one per lens (code always; security, UI and UX when they apply), against the bead's acceptance criteria and the project's rules. A must-fix caused by the bead itself goes back to planning instead of to the implementer.
 - **Red before green.** Tests are written first, and `red-green-check.sh` checks that new tests fail on the old code.
 - **Findings backlog.** Problems found outside a task's scope are filed as beads under a few standing epics, so they can be run later with the same pipeline.
 

@@ -8,14 +8,18 @@
     {
       "name": "backend",
       "dir": "backend",
-      "whenPaths": ["backend/"],
+      "whenPaths": [
+        "backend/"
+      ],
       "focused": "./backend/mvnw -f backend/pom.xml test -Dtest='dev.bethge.shipir.<pkg>.**' -Dsurefire.failIfNoSpecifiedTests=false",
       "full": "./backend/mvnw -f backend/pom.xml verify"
     },
     {
       "name": "frontend",
       "dir": "frontend",
-      "whenPaths": ["frontend/"],
+      "whenPaths": [
+        "frontend/"
+      ],
       "focused": "pnpm vitest run <changed dirs>",
       "full": "pnpm lint && pnpm test && pnpm build",
       "lint": "pnpm lint",
@@ -34,9 +38,20 @@
       }
     }
   },
-  "tracker": { "kind": "beads", "idPrefix": "shipr-" },
-  "codeMap": { "path": "docs/code-map", "maxDescription": 160 },
-  "uiSkill": { "name": "apple-design", "appliesTo": ["frontend/"] },
+  "tracker": {
+    "kind": "beads",
+    "idPrefix": "shipr-"
+  },
+  "codeMap": {
+    "path": "docs/code-map",
+    "maxDescription": 160
+  },
+  "uiSkill": {
+    "name": "apple-design",
+    "appliesTo": [
+      "frontend/"
+    ]
+  },
   "findings": {
     "epicTitles": {
       "security": "Findings: Security & authorization",
@@ -45,10 +60,45 @@
       "quality": "Findings: Code quality, UI & docs"
     }
   },
-  "attribution": { "allowAiTrailer": false },
+  "attribution": {
+    "allowAiTrailer": false
+  },
   "dashboard": {
     "enabled": true,
     "port": 4690,
     "tokensFile": "frontend/src/shared/styles/tokens.css"
+  },
+  "review": {
+    "lenses": [
+      {
+        "name": "security",
+        "scope": "bead",
+        "when": "the diff touches auth, permissions, remote host access, the audit log, subprocess execution, path handling, secrets or tokens",
+        "checklist": "authorization on every new entry point; input validation and injection (SQL, command, path traversal, prompt); secrets in code, logs or tests; token and crypto handling; malicious-case tests exist for the security-relevant code (see next-task-write-tests)"
+      },
+      {
+        "name": "ui",
+        "scope": "bead",
+        "whenPaths": [
+          "frontend/"
+        ],
+        "checklist": "follows the apple-design skill (read .claude/skills/apple-design/SKILL.md): design tokens instead of literal values, spacing and typography, loading, empty, error and disabled states, both themes, accessibility (roles, labels, focus order, contrast)"
+      },
+      {
+        "name": "ux",
+        "scope": "branch",
+        "whenPaths": [
+          "frontend/"
+        ],
+        "checklist": "the user flows the work set adds work end to end across its beads: each new screen or action is reachable, navigation and wording are consistent, error and empty paths lead somewhere, no dead ends, and the e2e specs cover the main journey"
+      }
+    ]
+  },
+  "fullGate": {
+    "skipPaths": [
+      "docs/",
+      ".beads/",
+      "*.md"
+    ]
   }
 }

@@ -7,6 +7,9 @@
 @@ -27 +27 @@
 +| Class | Category epic title | Slug | Typical content |
 -| Class | Category | Slug | Typical content |
+@@ -40 +40 @@
++1. **Deduplicate:** `bd search "<key words>"` and `bd list --label finding --status open`. If an open bead already covers it, add a note instead: `bd update <id> --notes "Seen again in <source-id>: <one line>"`. For a failing or flaky test, also search **closed** beads for the test's name (`bd list --label finding --status closed`): if one matches, the earlier fix didn't hold, so file a new finding that says "regressed, see <closed id>", with the priority raised by one.
+-1. **Deduplicate:** `bd search "<key words>"` and `bd list --label finding --status open`. If an open bead already covers it, add a note instead: `bd update <id> --notes "Seen again in <source-id>: <one line>"`.
 @@ -44 +44 @@
 +   bd create --type=epic --priority=<2 for Real categories, 3 for Quality> \
 +     --title="<epic title from the table>" --labels fcat:<slug> \

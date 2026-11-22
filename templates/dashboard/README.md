@@ -31,7 +31,7 @@ Every event has `ts` (ISO), `type` and `run`, plus:
 | `run-end` | `status` (`done` default, `blocked`, `failed`; updates `run.json`) |
 | `step-start`, `step-end` | `step` (`deps`, `plan`, `wave`, `review`, `finish`, `push`), `wave` (on `wave` steps; start and end are paired by step + wave), `sha` (on `step-end --step push`) |
 | `child-start`, `child-end` | `bead`, `model`, `wave`, `result`, `redBeforeGreen` (evidence) |
-| `review` | `verdict`, `mustFix` (count), `round` |
+| `review` | `verdict`, `mustFix` (count), `round`, `lenses` (comma-separated review lenses that ran, merged into this one verdict) |
 | `tests` | `scope`, `passed`, `failed`, `duration` |
 | `finding` | `bead` (id of the finding bead) |
 | `agent` | `agentId`, `agentType`, `bead` (from the first user prompt, after the word "bead"; absent if none), `model`, `durationMs`, `tokensIn`, `tokensOut`, `tokensCacheRead`, `tokensCacheWrite`, `cost` (estimate); written by the SubagentStop hook |
