@@ -164,3 +164,34 @@ test('synthetic message with non-zero usage makes cost absent', () => {
   assert.equal(e.tokensIn, 1000005);
   assert.equal('cost' in e, false);
 });
+
+test('agent started in the main checkout is matched by the worktree path its prompt names', () => {
+  const { root, store, worktree } = setup();
+  const main = path.join(root, 'main');
+  mkdirSync(main);
+  // A second running run whose worktree is a prefix of the name of the first one's: must not match.
+  recordEvent(store, 'run-b', 'run-start', { kind: 'next-task', units: ['y'], worktree: `${worktree}x` });
+  const t = path.join(root, 'agent.jsonl');
+  const lines = [
+    { type: 'user', timestamp: '2026-11-13T10:00:00.000Z', cwd: main,
+      message: { role: 'user', content: `Implement bead x-1 in worktree ${worktree} on branch epic/x-1-a.` } },
+    { type: 'assistant', timestamp: '2026-11-13T10:00:05.000Z', cwd: main,
+      message: { id: 'm', model: 'claude-sonnet-5-5', usage: { input_tokens: 3, output_tokens: 4 } } },
+  ];
+  writeFileSync(t, lines.map((l) => JSON.stringify(l)).join('\n') + '\n');
+  runHook({ cwd: main, agent_id: 'a', agent_type: 'implementer-sonnet', agent_transcript_path: t }, { store, cwd: main });
+  const [e] = events(store);
+  assert.equal(e.bead, 'x-1');
+  assert.equal(e.tokensOut, 4);
+  assert.equal(events(store, 'run-b').length, 0);
+});
+
+test('a worktree path that is only the prefix of another directory name does not match', () => {
+  const { root, store, worktree } = setup();
+  const t = path.join(root, 'agent.jsonl');
+  const line = { type: 'user', timestamp: '2026-11-13T10:00:00.000Z', cwd: root,
+    message: { role: 'user', content: `cd ${worktree}-other && ls` } };
+  writeFileSync(t, JSON.stringify(line) + '\n');
+  runHook({ cwd: root, agent_id: 'a', agent_transcript_path: t }, { store, cwd: root });
+  assert.equal(events(store).length, 0);
+});

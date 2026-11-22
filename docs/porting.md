@@ -31,6 +31,8 @@ The goldens are rendered with `test/fixtures/shipir-file-layout.wavework.json` (
 
 ## next-task
 
+- (0.5.0) "Keep your context small" paragraph before the steps: checks through `next-task-test`'s log-file rule, only verdicts of sub-agent reports kept, the full gate in a sub-agent. From the Rumbo runs: the orchestrator was about half the cost and one run ran out of context.
+- (0.5.0) The review bullet runs the review lenses in parallel and routes `spec` must-fix items to a stop instead of the implementer.
 - Findings epics named by "the standing findings epics" instead of the literal `"Findings: <category>"` (titles are configurable).
 - Step 4 and the red-green bullet say "tests/checks of its area" instead of "backend and frontend"; the Docker remark is now "tests that need external services need them running" (Shipir-specific).
 - Recording paragraph: recorder at `.claude/wavework/dashboard/record.mjs`, fields in `.claude/wavework/dashboard/README.md` (was `tools/pipeline-dashboard/`); "record.mjs only exists on the branch, so never from `MAIN`" became "record from `<WT>` while it exists" (the recorder is committed in `.claude/`, so it exists on every checkout).
@@ -66,6 +68,7 @@ The goldens are rendered with `test/fixtures/shipir-file-layout.wavework.json` (
 
 ## next-task-findings
 
+- (0.5.0) Step 1 also searches closed beads for a failing or flaky test and files a "regressed, see <id>" finding with raised priority (Shipir: ContainerLogServiceIntegrationTest "fixed" three times, five test classes filed twice).
 - No reference to `BACKLOG.md`, and "CLAUDE.md requires beads for all tracking" became "findings are tracked in beads like all other work".
 - Description names "the standing findings epics" (titles configurable).
 - Table header "Category epic title"; rows from `findings.epicTitles` (same text with the defaults).
@@ -74,6 +77,8 @@ The goldens are rendered with `test/fixtures/shipir-file-layout.wavework.json` (
 
 ## next-task-finish
 
+- (0.5.0) Step 2: the full gate runs in a sub-agent with a short fixed report, plus a flaky rule (rerun only the failing tests once; a flake in code the branch didn't touch is filed and the run continues, anything else stops). Shipir: 12 of 13 checked dev CI failures were flakes; Rumbo: the orchestrator pushed past a red gate it called a flake. The branch review uses the lenses and stops on `spec` items.
+- (0.5.0) Step 6: after a re-rebase the gate reruns only for areas both the new base commits and the branch change (Rumbo: docs-only runs ran the 20-minute gate twice).
 - Recording sentence: "record.mjs only exists on the branch, so never call it from `MAIN`" became "record from `<WT>` while it exists, never after it is removed".
 - The `HANDOFF.md` documentation bullet is dropped (Shipir planning file).
 - Step 5 exports the beads with `bd export -o .beads/issues.jsonl` right before the documentation commit and stops when the line count drops against the base branch (a sign of a stale database); the file is not exported on its own without the beads git hooks.
@@ -81,6 +86,8 @@ The goldens are rendered with `test/fixtures/shipir-file-layout.wavework.json` (
 
 ## next-task-implement
 
+- (0.5.0) Step 0: the worktree is shared within a wave, so no `git stash`/`reset`/`checkout -- <file>`/`clean` and no `pkill`/`pgrep` by pattern (Rumbo: an implementer looped 30 minutes on `pgrep -f "playwright test"` matching other agents' runs; denied `git stash` attempts).
+- (0.5.0) Step 6: the report is a fixed one-line-per-field block, so it costs the orchestrator's context little.
 - Step 5 says "the checks of your area ... where configured" instead of "Backend and frontend ... if present".
 
 ## next-task-plan
@@ -90,11 +97,14 @@ The goldens are rendered with `test/fixtures/shipir-file-layout.wavework.json` (
 
 ## next-task-review
 
+- (0.5.0) Review lenses: the code lens (Shipir's checklist) plus configured lenses (`review.lenses`, defaults security, ui, ux) run as parallel reviewers and are merged into one list; must-fix items are typed `impl` (back to the implementer) or `spec` (child stops, the bead needs fixing); output capped at ~150 words; one `review` Record per round with `--lenses`.
 - The UI remark reads "the `<uiSkill.name>` skill for UI under <paths>" instead of "`apple-design` + tokens for frontend UI".
 - Generic wording for e2e examples without the Mockito `verify(...)` reference (see diff).
 
 ## next-task-test
 
+- (0.5.0) `full` runs only the changed areas (a path outside every area runs all of them; `fullGate.skipPaths` never triggers an area, so docs-only changes skip the gate).
+- (0.5.0) "Running a command" section: output to a log file in the git dir with only the tail read, full/e2e/red-green under `flock` on the git common dir, foreground waits with an explicit timeout, no `sleep`/polling, stop only your own PID (Rumbo: 38 blocked `sleep` calls, 15 failed Monitor calls; Shipir: Testcontainers failures under parallel load).
 - The `Record:` line calls `node .claude/wavework/dashboard/record.mjs` (was `tools/pipeline-dashboard/`).
 
 - Per-area sections generated from `checks` (focused, full, lint, build, e2e) instead of the hand-written backend/frontend sections.

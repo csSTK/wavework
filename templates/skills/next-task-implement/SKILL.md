@@ -14,6 +14,7 @@ Record: at the start of steps 2–5, `cd <worktree> && node .claude/wavework/das
 0. **Check the worktree.** Your prompt names a worktree path and a branch. Work only there: start every Bash command with `cd <worktree> &&`, use absolute paths under it for Read/Edit/Write, and never run `git switch`/`checkout`.
    - Run `cd <worktree> && git rev-parse --show-toplevel && git branch --show-current`. If either doesn't match the prompt, **stop** and report it. Don't write anything.
    - Repeat this check right before reporting back.
+   - **The worktree is shared** with the other implementers of your wave. Never run `git stash`, `git reset`, `git checkout -- <file>`, `git clean` or anything else that touches files outside your file set, and never stop processes you didn't start yourself: no `pkill`/`pgrep`/`killall` by name or pattern, since other agents' test runs match the same pattern. Wait for and stop only your own commands, as `next-task-test` says.
 1. **Understand.**
    - `bd show <id>`, then `bd update <id> --claim`.
    {{#if codeMap}}
@@ -32,12 +33,19 @@ Record: at the start of steps 2–5, `cd <worktree> && node .claude/wavework/das
 5. **Run focused tests:** `next-task-test`. The checks of your area, plus lint, type checks and e2e where configured. Everything must pass.
    - **Retry cap:** count every focused run (`next-task-test`) of this bead that fails after you changed code. After the **3rd failed run**, stop. Don't weaken tests, don't try a 4th time. Step 6 then reports BLOCKED.
    - **Root cause before each retry:** after a failed run, before you change code again, write one line: the root cause read from the failing output (the failing test or error, and why it fails) and the fix you will make. No retry without this line. If two consecutive failed runs show the same root cause, change the approach; don't repeat the same fix.
-6. **Report back. You're finished.** Don't commit, push or close the bead. Leave your changes uncommitted in the worktree. If blocked (retry cap, or a stop from steps 0–3), report **BLOCKED** instead of the success report: the reason, the failing command and the last ~40 lines of its failing output, the root-cause line of each failed run, the files changed so far, and findings. Otherwise report:
-   - the worktree check result (path and branch)
-   - the files changed
-   - the criterion → test mapping
-   - **Red before green:** the failing run captured in step 2 (test name + assertion line per test), or the stated exception (pure refactor, docs, config; with reason). A report without this section is incomplete. The orchestrator re-checks it with `.claude/scripts/red-green-check.sh`; a test that passes on the old code must be justified here (e.g. deliberate regression guard)
-   - the exact test commands and results
-   - the e2e status
-   - each acceptance criterion: met or not
-   - **Findings:** bugs or code-quality problems you noticed outside your bead's scope (file:line, what, why). Don't fix them and don't file beads; the orchestrator records them via `next-task-findings`. "None" if none.
+6. **Report back. You're finished.** Don't commit, push or close the bead. Leave your changes uncommitted in the worktree. The orchestrator keeps every report in its context for the whole run, so report **exactly in this format, nothing else**: one line per field, no narrative, no diff, no logs beyond the BLOCKED tail.
+
+   ```
+   Result: DONE | BLOCKED <reason>
+   Worktree: <path> / <branch> (checked)
+   Files: <path>, <path>, ...
+   Criteria: <criterion short> -> <test name> (met|not met); ...
+   Red before green: <test name>: <failing assertion line>; ... | exception: <refactor|docs|config> (<reason>)
+   Tests: <command> -> <passed>/<failed>; ...
+   E2E: <spec files> -> <passed>/<failed> | n/a (<reason>)
+   Findings: <file:line> <what> / <why>; ... | none
+   ```
+
+   - **Red before green** is required. The orchestrator re-checks it with `.claude/scripts/red-green-check.sh`; a test that passes on the old code must be justified here (e.g. deliberate regression guard).
+   - **Findings** are bugs or code-quality problems you noticed outside your bead's scope. Don't fix them and don't file beads; the orchestrator records them via `next-task-findings`.
+   - **BLOCKED** (retry cap, or a stop from steps 0–3) adds, below the block: the failing command, the root-cause line of each failed run and the last ~40 lines of the failing output.

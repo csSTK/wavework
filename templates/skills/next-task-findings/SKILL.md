@@ -34,7 +34,7 @@ Class "Real" = a bug, security issue, data-loss risk or CLAUDE.md rule violation
 
 ## Steps
 
-1. **Deduplicate:** `bd search "<key words>"` and `bd list --label finding --status open`. If an open bead already covers it, add a note instead: `bd update <id> --notes "Seen again in <source-id>: <one line>"`.
+1. **Deduplicate:** `bd search "<key words>"` and `bd list --label finding --status open`. If an open bead already covers it, add a note instead: `bd update <id> --notes "Seen again in <source-id>: <one line>"`. For a failing or flaky test, also search **closed** beads for the test's name (`bd list --label finding --status closed`): if one matches, the earlier fix didn't hold, so file a new finding that says "regressed, see <closed id>", with the priority raised by one.
 2. **Find or create the category epic.** `bd list --type epic --status open --label fcat:<slug>`. Always use that one, even while it is being run: never create a second epic for the same category. If there is none at all, create it:
 
    ```bash

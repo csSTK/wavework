@@ -36,6 +36,8 @@ Minimal valid config:
 | `dashboard.enabled` | boolean | no | `true` |
 | `dashboard.port` | integer 1024 to 65535 | no | `4690` |
 | `dashboard.tokensFile` | repo-relative path to a `.css` file | no | omitted |
+| `review.lenses` | array of lenses | no | `security`, plus `ui` and `ux` with a `uiSkill` (see below) |
+| `fullGate.skipPaths` | array of `folder/` prefixes or `*.<ext>` | no | `["docs/", ".beads/", "*.md"]` |
 
 All strings must be non-empty.
 
@@ -111,6 +113,25 @@ Maps a finding category (any key) to the title of its standing epic. Defaults: `
 ### `dashboard`
 
 The pipeline dashboard (see [dashboard.md](dashboard.md)). `enabled: false` leaves out the `Record:` lines in the skills, the runtime in `.claude/wavework/dashboard/` and its three hooks; `update` removes what an earlier run installed. `port`: where the server listens (127.0.0.1 only). `tokensFile`: a CSS file of your design tokens (no leading `/`, no `..` or `.` segments, no backslash, must end in `.css`) that the UI loads after its neutral default theme. Example: `{ "port": 4690, "tokensFile": "frontend/src/shared/styles/tokens.css" }`.
+
+### `review.lenses`
+
+Every review (after each bead, and the branch review before the push) is split into **lenses**: one fresh read-only reviewer per lens, started in parallel, each with one checklist, merged into one must-fix list. The built-in `code` lens always runs (acceptance criteria, red-green output, CLAUDE.md rules, code map, scope creep, secrets) and cannot be configured. The lenses listed here are the others; a configured list replaces the defaults, `[]` leaves only `code`.
+
+| Field | Type | Required | Meaning |
+|---|---|---|---|
+| `name` | lowercase letters, digits, `-` | yes | lens name, not `code`; unique |
+| `checklist` | string | yes | what the reviewer checks |
+| `scope` | `"bead"`, `"branch"` or `"both"` | no, `"bead"` | per-bead review, branch review, or both |
+| `whenPaths` | array of path prefixes | no | runs when a changed file starts with one of them |
+| `when` | string | no | runs when the orchestrator judges the diff matches this text |
+| `model` | an implementer model | no, the default implementer | the reviewer is `implementer-<model>` |
+
+Without `whenPaths` and `when` a lens always runs; with both, either one is enough. Defaults: `security` (per bead, `when` the diff touches auth, sessions, permissions, secrets, crypto, LLM prompts or input reaching a shell, path, query or outbound request), and with a `uiSkill` also `ui` (per bead, `whenPaths` = `uiSkill.appliesTo`, checks the UI skill, states, themes and accessibility) and `ux` (branch review, same paths, checks the flows end to end). Give `security` your own trigger by listing the lenses yourself, e.g. the areas of your model rules' "never for haiku" list. Every must-fix item is typed `impl` (back to the implementer) or `spec` (the bead itself is wrong; the child stops and goes back to planning).
+
+### `fullGate.skipPaths`
+
+`next-task-test full` runs the **Full** command of each area the branch changed (and of every area when a changed path belongs to no area). Paths matching `skipPaths` never trigger an area, so a branch that only changes them skips the gate. Entries are folder prefixes ending in `/` or `*.<ext>`. `[]` turns skipping off.
 
 ## API
 

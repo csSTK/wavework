@@ -7,6 +7,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.5.0] - 2026-11-22
+
+### Added
+
+- **Review lenses.** `next-task-review` runs one fresh reviewer per lens in parallel and merges their findings: the built-in `code` lens always, plus `review.lenses` from the config (defaults: `security` when the diff touches risky areas, and with a `uiSkill` a per-bead `ui` lens and a branch-level `ux` lens). Each must-fix is typed `impl` (back to the implementer) or `spec` (the bead is wrong: the child stops like a blocked one and goes back to planning).
+- **Flaky-test rule** in `next-task-finish`: the full gate reruns only the failing tests, once. A flake in code the branch didn't touch is filed as a `tests` finding and the run continues; anything else stops. `next-task-findings` also checks closed beads for a failing test and files regressions with a raised priority.
+- `fullGate.skipPaths` (default `docs/`, `.beads/`, `*.md`).
+
+### Changed
+
+- `next-task-test full` runs only the areas the branch changed (all of them when a path belongs to no area), and nothing for docs-only branches. After a re-rebase before the push, the gate reruns only for areas both the new base commits and the branch change.
+- The full gate runs in a sub-agent that reports a short verdict, and the orchestrator is told to keep its context small: checks log to a file in the git dir and only the tail is read, implementer and reviewer reports have a fixed short format.
+- `next-task-test` says how to run and wait for checks: foreground with an explicit timeout, background only with the completion notification (no `sleep`, no polling), full/e2e/red-green under `flock` on the git common dir, never `pkill`/`pgrep` by pattern. `next-task-implement` forbids `git stash`/`reset`/`checkout -- <file>`/`clean` in the shared worktree.
+- `review` Record lines are one per round with `--lenses`.
+
+### Fixed
+
+- Dashboard: sub-agent tokens and cost were never recorded when the sub-agent started in the main checkout (the usual case): `SubagentStop` now also finds the run by the worktree path named in the agent's transcript.
+- Recorder: `--units a b` (space-separated) is split like `a,b`; `--bead` must be a bead id (or `branch`), so an empty variable no longer records `bead: true`.
+
 ## [0.4.1] - 2026-11-21
 
 ### Fixed
@@ -94,7 +114,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Pipeline dashboard: `init`/`update` install the recorder, hooks, server and UI into `.claude/wavework/dashboard/` (committed, works in worktrees without `node_modules`) and register its `SessionStart`/`SubagentStop` hooks while `dashboard.enabled`; `dashboard.port` and `dashboard.tokensFile` in the config; `wavework dashboard` starts the server; the skills' `Record:` lines follow the config; neutral default theme; disabling removes its hooks and unedited runtime files on `update` (`docs/dashboard.md`).
 - README: install, daily use, configuration, upgrading, and dashboard. `scripts/smoke.sh` runs the README commands against the packed package in CI (`smoke` job), and `test/readme.test.mjs` fails when a README command has no smoke step or test.
 
-[Unreleased]: https://github.com/csSTK/wavework/compare/v0.4.1...HEAD
+[Unreleased]: https://github.com/csSTK/wavework/compare/v0.5.0...HEAD
+[0.5.0]: https://github.com/csSTK/wavework/releases/tag/v0.5.0
 [0.4.1]: https://github.com/csSTK/wavework/releases/tag/v0.4.1
 [0.4.0]: https://github.com/csSTK/wavework/releases/tag/v0.4.0
 [0.3.2]: https://github.com/csSTK/wavework/releases/tag/v0.3.2

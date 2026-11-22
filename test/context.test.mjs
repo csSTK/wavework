@@ -139,3 +139,23 @@ test('codeMap context: the checker command carries a configured bead ID prefix a
   assert.equal(c.checkCommand, 'node .claude/scripts/code-map-check.mjs docs/code-map --id-prefix shipr- --max 120');
   assert.equal(c.maxDescription, 120);
 });
+
+test('review lens table: code lens first, then the configured lenses with their condition and reviewer', () => {
+  const ctx = shipir();
+  const rows = ctx.reviewLenses.split('\n');
+  assert.match(rows[2], /^\| `code` \| each bead and branch review \| always \| `implementer-sonnet` \|/);
+  assert.match(ctx.reviewLenses, /\| `ux` \| branch review \| changed files under `frontend\/` \|/);
+  assert.equal(ctx.lensNamesPipe, 'code|security|ui|ux');
+  assert.equal(minimal().lensNamesPipe, 'code|security');
+});
+
+test('lens text with a pipe does not break the table', () => {
+  const ctx = buildContext(validateConfig({ ...minimalRaw, review: { lenses: [{ name: 'a', when: 'x | y', checklist: 'p | q' }] } }));
+  const row = ctx.reviewLenses.split('\n')[3];
+  assert.equal(row.split('|').length, 7);
+});
+
+test('fullGate skip paths render as code, empty when none', () => {
+  assert.equal(minimal().fullGateSkipPaths, '`docs/`, `.beads/`, `*.md`');
+  assert.equal(buildContext(validateConfig({ ...minimalRaw, fullGate: { skipPaths: [] } })).fullGateSkipPaths, '');
+});

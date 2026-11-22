@@ -4,7 +4,7 @@
  * as Markdown, so the template engine needs no loops.
  */
 
-import { codeMapLayout } from './config.mjs';
+import { CODE_LENS, codeMapLayout } from './config.mjs';
 
 const FINDING_CLASSES = {
   security: { kind: 'Real', typical: 'auth, permission, token, egress, path, subprocess, secret handling, missing re-authorization' },
@@ -103,6 +103,24 @@ function redGreenAreas(checks) {
   }).join('\n');
 }
 
+const SCOPE_TEXT = { bead: 'each bead', branch: 'branch review', both: 'each bead and branch review' };
+
+/** Markdown table of the review lenses, the built-in code lens first. */
+function lensTable(config) {
+  const fallback = config.models.implementers.default;
+  const rows = [
+    `| ${code(CODE_LENS)} | each bead and branch review | always | ${code(`implementer-${fallback}`)} | the checklist under "Code lens" below |`,
+    ...config.review.lenses.map((l) => {
+      const when = [
+        l.whenPaths ? `changed files under ${l.whenPaths.map(code).join(', ')}` : null,
+        l.when ? l.when.replace(/\|/g, '/') : null,
+      ].filter(Boolean).join('; or ') || 'always';
+      return `| ${code(l.name)} | ${SCOPE_TEXT[l.scope]} | ${when} | ${code(`implementer-${l.model ?? fallback}`)} | ${l.checklist.replace(/\|/g, '/')} |`;
+    }),
+  ];
+  return ['| Lens | Runs for | Runs when | Reviewer | Checks |', '|---|---|---|---|---|', ...rows].join('\n');
+}
+
 /**
  * @param {object} config validated config (see validateConfig)
  * @param {object} [options]
@@ -158,5 +176,8 @@ export function buildContext(config, options = {}) {
     redGreenAreas: redGreenAreas(checks),
     noAttribution: !config.attribution.allowAiTrailer,
     dashboard: config.dashboard.enabled,
+    reviewLenses: lensTable(config),
+    lensNamesPipe: [CODE_LENS, ...config.review.lenses.map((l) => l.name)].join('|'),
+    fullGateSkipPaths: config.fullGate.skipPaths.length ? config.fullGate.skipPaths.map(code).join(', ') : '',
   };
 }
