@@ -272,3 +272,10 @@ test('pr-review: attribution rule follows the config', () => {
   const allowed = buildContext(validateConfig({ ...minimalRaw, dashboard: { enabled: false }, attribution: { allowAiTrailer: true } }));
   assert.doesNotMatch(rendered('pr-review', allowed), /attribution/);
 });
+
+test('pr-review: paths are literal (no shell variables across Bash calls), cleanup runs from the main repo, red-green uses the fork point', () => {
+  const out = rendered('pr-review', minimalContext);
+  assert.doesNotMatch(out, /\$WT|\$MAIN/);
+  assert.match(out, /`git -C <MAIN> worktree remove <WT>` \(never `--force`\)/);
+  assert.match(out, /red-green-check\.sh <WT> <fork-point>`[^\n]*git merge-base origin\/<base> HEAD/);
+});
