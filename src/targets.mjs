@@ -33,7 +33,7 @@ export const SKILLS = [
   'next-task', 'next-task-batch', 'next-task-beads', 'next-task-branch', 'next-task-code',
   'next-task-deps', 'next-task-e2e', 'next-task-findings', 'next-task-finish', 'next-task-implement',
   'next-task-plan', 'next-task-review', 'next-task-test', 'next-task-write-tests',
-  'text-to-task', 'watch-ci',
+  'pr-review', 'text-to-task', 'watch-ci',
 ];
 
 /** Where the dashboard runtime lives in a repository. Skills and hooks call it by this path (tests keep them in sync). */

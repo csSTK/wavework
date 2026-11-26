@@ -13,8 +13,11 @@ const SKILLS = [
   'next-task', 'next-task-batch', 'next-task-beads', 'next-task-branch', 'next-task-code',
   'next-task-deps', 'next-task-e2e', 'next-task-findings', 'next-task-finish', 'next-task-implement',
   'next-task-plan', 'next-task-review', 'next-task-test', 'next-task-write-tests',
-  'text-to-task', 'watch-ci',
+  'pr-review', 'text-to-task', 'watch-ci',
 ];
+// Skills written for wavework itself: no Shipir source, so no golden diff.
+const NATIVE = ['pr-review'];
+const PORTED = SKILLS.filter((s) => !NATIVE.includes(s));
 const template = (skill) => readFileSync(at('templates', 'skills', skill, 'SKILL.md'), 'utf8');
 
 // The pre-0.2 Shipir config (single-file code map): the golden diffs record the file layout.
@@ -38,13 +41,13 @@ test('every skill has a template and no unknown skill sneaks in', () => {
 });
 
 test('templates and golden sources use LF line endings', () => {
-  for (const s of SKILLS) {
-    assert.ok(!template(s).includes('\r'), `${s} template has CR`);
+  for (const s of SKILLS) assert.ok(!template(s).includes('\r'), `${s} template has CR`);
+  for (const s of PORTED) {
     assert.ok(!readFileSync(at('test', 'golden', 'shipir-source', `${s}.md`), 'utf8').includes('\r'), `${s} source has CR`);
   }
 });
 
-for (const skill of SKILLS) {
+for (const skill of PORTED) {
   test(`golden: ${skill} rendered with the Shipir config differs from the Shipir skill only as recorded`, () => {
     const rendered = render(template(skill), shipirContext, skill);
     assert.ok(!rendered.includes('\r'));
@@ -58,7 +61,7 @@ for (const skill of SKILLS) {
 
 test('porting.md documents every skill whose output differs from Shipir', () => {
   const doc = readFileSync(at('docs', 'porting.md'), 'utf8');
-  for (const skill of SKILLS) {
+  for (const skill of PORTED) {
     const diff = readFileSync(at('test', 'golden', 'shipir-diff', `${skill}.diff`), 'utf8');
     if (diff !== '') assert.match(doc, new RegExp(`^## ${skill}$`, 'm'), `docs/porting.md lacks "## ${skill}"`);
   }
@@ -226,3 +229,46 @@ for (const skill of SKILLS) {
     assert.doesNotMatch(out, /(^|[^`])``([^`]|$)/);
   });
 }
+
+// ---------- pr-review ----------
+
+test('pr-review: triggers on merge requests and never merges without the user picking a merge option', () => {
+  const out = rendered('pr-review', minimalContext);
+  assert.match(out, /^description: [^\n]*whenever the user asks to merge a pull request/m);
+  assert.match(out, /Merging is not authorized by the request itself/);
+  assert.match(out, /Only after the user picks a method: `gh pr merge <n>/);
+  assert.match(out, /"Don't merge"/);
+  assert.match(out, /Never `gh pr merge --admin` or `--auto`/);
+});
+
+test('pr-review: runs the full command of every area, and e2e only when configured', () => {
+  const two = validateConfig({
+    baseBranch: 'main',
+    dashboard: { enabled: false },
+    checks: [
+      { name: 'api', dir: 'api', whenPaths: ['api/'], focused: 'a', full: 'mvn verify' },
+      { name: 'web', dir: 'web', whenPaths: ['web/'], focused: 'w', full: 'pnpm test', e2e: 'pnpm e2e' },
+    ],
+  });
+  const out = rendered('pr-review', buildContext(two));
+  const suite = out.slice(out.indexOf('## Whole test suite'), out.indexOf('## Report'));
+  assert.match(suite, /- `api`: `mvn verify`\n- `web`: `pnpm test`/);
+  assert.match(suite, /- `web`: `pnpm e2e`/);
+  assert.doesNotMatch(rendered('pr-review', minimalContext), /e2e command/);
+});
+
+test('pr-review: review, rebase, test-fix and comment steps are all there, in order', () => {
+  const out = rendered('pr-review', minimalContext);
+  const order = ['**Review for bugs.**', '**Bugs found: suggest', '**Rebase if needed.**', '**Whole test suite.**', '**Fix test failures.**', '**Summary comment:**', '**Ask before merging.**'];
+  const at = order.map((s) => out.indexOf(s));
+  assert.ok(at.every((i) => i >= 0), `missing step: ${order[at.indexOf(-1)]}`);
+  assert.deepEqual([...at].sort((a, b) => a - b), at);
+  assert.match(out, /--force-with-lease=<headRef>:<old-head>/);
+  assert.match(out, /never delete, skip or weaken a test/);
+});
+
+test('pr-review: attribution rule follows the config', () => {
+  assert.match(rendered('pr-review', minimalContext), /never add attribution lines/);
+  const allowed = buildContext(validateConfig({ ...minimalRaw, dashboard: { enabled: false }, attribution: { allowAiTrailer: true } }));
+  assert.doesNotMatch(rendered('pr-review', allowed), /attribution/);
+});

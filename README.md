@@ -18,7 +18,7 @@ The pipeline works like this:
 - [beads](https://github.com/steveyegge/beads) (`bd`), with the repository set up for it
 - [Claude Code](https://claude.com/claude-code)
 - bash (for `red-green-check.sh`)
-- [GitHub CLI](https://cli.github.com) (`gh`), only for `/watch-ci`
+- [GitHub CLI](https://cli.github.com) (`gh`), only for `/watch-ci` and `/pr-review`
 
 ## Install
 
@@ -47,7 +47,7 @@ For each file `init` would write that already exists: identical content is kept 
 
 `init` writes:
 
-- `.claude/skills/`: the 16 skills (`next-task`, `next-task-*`, `text-to-task`, `watch-ci`)
+- `.claude/skills/`: the 17 skills (`next-task`, `next-task-*`, `pr-review`, `text-to-task`, `watch-ci`)
 - `.claude/agents/implementer-<model>.md`: one implementer agent per model in the config (the default config gives `implementer-sonnet` and `implementer-haiku`)
 - `.claude/scripts/red-green-check.sh` and its test, plus `.claude/scripts/code-map-check.mjs` with a folder code map
 - `.claude/wavework/dashboard/`: the pipeline dashboard (with `dashboard.enabled`, the default)
@@ -66,6 +66,7 @@ Start these from Claude Code:
 - `/next-task-batch <epic-id> <epic-id> ...`: runs `/next-task` for several epics one after another, ordered by their dependencies, and watches CI once at the end.
 - `/text-to-task`: turns a free-text feature request into an epic with child tasks, asking questions first when the request is too vague.
 - `/watch-ci`: reports the GitHub Actions result for the current commit, branch or run, read-only.
+- `/pr-review [<pr>]`: reviews a pull request for bugs and suggests fixes, rebases it if needed, runs every area's full test suite, fixes failures the PR caused, posts a summary comment and merges only after you pick a merge option. Claude uses it whenever you ask it to merge a PR.
 
 The other `next-task-*` skills are steps that these commands use; you do not start them directly.
 

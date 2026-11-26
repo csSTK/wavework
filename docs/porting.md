@@ -1,6 +1,6 @@
 # Porting notes: Shipir skills to wavework templates
 
-The 16 skills in `templates/skills/<name>/SKILL.md` were ported from Shipir's `.claude/skills/` (the 14 `next-task*` skills, `text-to-task`, `watch-ci`; Shipir `dev`, 2026-11-13). The agents in `templates/agents/` and the scripts in `templates/scripts/` come from `.claude/agents/` and `.claude/scripts/`. Syntax: `{{var}}`, `{{#if key}}...{{else}}...{{/if}}` (see `src/render.mjs`); the variables come from `src/context.mjs`.
+The 16 skills in `templates/skills/<name>/SKILL.md` were ported from Shipir's `.claude/skills/` (the 14 `next-task*` skills, `text-to-task`, `watch-ci`; Shipir `dev`, 2026-11-13). The agents in `templates/agents/` and the scripts in `templates/scripts/` come from `.claude/agents/` and `.claude/scripts/`. `pr-review` is not a port: it was written for wavework and has no golden diff. Syntax: `{{var}}`, `{{#if key}}...{{else}}...{{/if}}` (see `src/render.mjs`); the variables come from `src/context.mjs`.
 
 ## How parity is checked
 
