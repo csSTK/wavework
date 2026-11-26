@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.6.0] - 2026-11-26
+
+### Added
+
+- **`/pr-review`** skill, used whenever the user asks to merge a pull request: reviews the PR with the branch-review lenses (each must-fix with a suggested fix, applied only on a yes), rebases it onto its base when it is behind, runs the full command of every area (and e2e), fixes failures the PR caused (failures that also happen on the base are filed as findings instead), pushes with a lease, waits for CI, posts one summary comment, and merges only after the user picks a merge method. Never `--admin` or `--auto`; fork PRs are reviewed and tested but never pushed to.
+
 ## [0.5.0] - 2026-11-22
 
 ### Added
@@ -114,7 +120,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Pipeline dashboard: `init`/`update` install the recorder, hooks, server and UI into `.claude/wavework/dashboard/` (committed, works in worktrees without `node_modules`) and register its `SessionStart`/`SubagentStop` hooks while `dashboard.enabled`; `dashboard.port` and `dashboard.tokensFile` in the config; `wavework dashboard` starts the server; the skills' `Record:` lines follow the config; neutral default theme; disabling removes its hooks and unedited runtime files on `update` (`docs/dashboard.md`).
 - README: install, daily use, configuration, upgrading, and dashboard. `scripts/smoke.sh` runs the README commands against the packed package in CI (`smoke` job), and `test/readme.test.mjs` fails when a README command has no smoke step or test.
 
-[Unreleased]: https://github.com/csSTK/wavework/compare/v0.5.0...HEAD
+[Unreleased]: https://github.com/csSTK/wavework/compare/v0.6.0...HEAD
+[0.6.0]: https://github.com/csSTK/wavework/releases/tag/v0.6.0
 [0.5.0]: https://github.com/csSTK/wavework/releases/tag/v0.5.0
 [0.4.1]: https://github.com/csSTK/wavework/releases/tag/v0.4.1
 [0.4.0]: https://github.com/csSTK/wavework/releases/tag/v0.4.0
